@@ -6,19 +6,36 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Upload as UploadIcon, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Upload as UploadIcon, X, FileText, Image as ImageIcon, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Navigation } from "@/components/Navigation";
 
 const Upload = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
+  const [fileType, setFileType] = useState<string>("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
 
+  const getFileIcon = (fileName: string) => {
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) return ImageIcon;
+    if (['xls', 'xlsx', 'csv'].includes(ext || '')) return FileSpreadsheet;
+    return FileText;
+  };
+
+  const getFileTypeLabel = (fileName: string) => {
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    return ext?.toUpperCase() || 'Unknown';
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      setFile(selectedFile);
+      setFileType(getFileTypeLabel(selectedFile.name));
     }
   };
 
@@ -47,19 +64,22 @@ const Upload = () => {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-primary text-primary-foreground shadow-lg">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              className="text-primary-foreground"
-              onClick={() => navigate("/")}
-            >
-              <ArrowLeft className="h-6 w-6" />
-            </Button>
-            <div>
-              <h1 className="text-xl font-bold">Upload Resource</h1>
-              <p className="text-xs opacity-90">Share notes or questions</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="text-primary-foreground"
+                onClick={() => navigate("/")}
+              >
+                <ArrowLeft className="h-6 w-6" />
+              </Button>
+              <div>
+                <h1 className="text-xl font-bold">Upload Resource</h1>
+                <p className="text-xs opacity-90">Share notes or questions</p>
+              </div>
             </div>
+            <Navigation />
           </div>
         </div>
       </header>
@@ -113,6 +133,7 @@ const Upload = () => {
                     <SelectValue placeholder="Select year" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="2025">2025</SelectItem>
                     <SelectItem value="2024">2024</SelectItem>
                     <SelectItem value="2023">2023</SelectItem>
                     <SelectItem value="2022">2022</SelectItem>
@@ -158,18 +179,37 @@ const Upload = () => {
                   type="file"
                   id="file"
                   className="hidden"
-                  accept=".pdf,.doc,.docx"
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp"
                   onChange={handleFileChange}
                   required
                 />
                 <label htmlFor="file" className="cursor-pointer">
                   <UploadIcon className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
                   {file ? (
-                    <p className="text-sm font-medium">{file.name}</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-center gap-2">
+                        {(() => {
+                          const Icon = getFileIcon(file.name);
+                          return <Icon className="h-5 w-5 text-primary" />;
+                        })()}
+                        <p className="text-sm font-medium">{file.name}</p>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        {fileType} File
+                      </Badge>
+                      <p className="text-xs text-muted-foreground">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Click to upload PDF or Word document
-                    </p>
+                    <>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Click to upload document or image
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Supported: PDF, Word, PowerPoint, Excel, Images
+                      </p>
+                    </>
                   )}
                 </label>
               </div>

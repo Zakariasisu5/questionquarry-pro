@@ -2,8 +2,9 @@ import { useState } from "react";
 import { SearchBar } from "@/components/SearchBar";
 import { CourseCard } from "@/components/CourseCard";
 import { ResourceCard } from "@/components/ResourceCard";
+import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Upload, Star, Download, Menu } from "lucide-react";
+import { BookOpen, Upload, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
@@ -87,9 +88,7 @@ const Index = () => {
                 <p className="text-xs opacity-90">Past Questions & Notes</p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" className="text-primary-foreground">
-              <Menu className="h-6 w-6" />
-            </Button>
+            <Navigation />
           </div>
         </div>
       </header>
