@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Upload as UploadIcon, X, FileText, Image as ImageIcon, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Navigation } from "@/components/Navigation";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const Upload = () => {
   const navigate = useNavigate();
@@ -18,6 +20,17 @@ const Upload = () => {
   const [fileType, setFileType] = useState<string>("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
+  const { user, loading: authLoading } = useAuth();
+
+  // form fields
+  const [courseCode, setCourseCode] = useState("");
+  const [title, setTitle] = useState("");
+  const [resourceType, setResourceType] = useState<"note" | "question" | "">("");
+  const [year, setYear] = useState("");
+  const [semester, setSemester] = useState("");
+  const [level, setLevel] = useState("");
+  const [description, setDescription] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const getFileIcon = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase();
@@ -50,13 +63,70 @@ const Upload = () => {
     setTags(tags.filter(tag => tag !== tagToRemove));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Upload successful!",
-      description: "Your resource will be reviewed by moderators.",
-    });
-    setTimeout(() => navigate("/"), 1500);
+
+    if (!user) {
+      toast({ title: "Not signed in", description: "You must be signed in to upload." });
+      return;
+    }
+
+    if (!file) {
+      toast({ title: "No file selected", description: "Please choose a file to upload." });
+      return;
+    }
+
+    if (!courseCode || !title || !resourceType) {
+      toast({ title: "Missing fields", description: "Please fill required fields." });
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      // Ensure you have created a storage bucket named 'resources' in Supabase
+      const bucket = 'resources';
+      const filePath = `${user.id}/${Date.now()}_${file.name}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      // Get a public URL for the uploaded file
+      const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+      const publicUrl = publicData?.publicUrl ?? '';
+
+      // Insert resource record for review
+      const { data: insertData, error: insertError } = await supabase
+        .from('resources')
+        .insert({
+          contributor_id: user.id,
+          course_code: courseCode,
+          title,
+          type: resourceType || 'note',
+          file_url: publicUrl,
+          verified: false
+        })
+        .select()
+        .maybeSingle();
+
+      if (insertError) throw insertError;
+
+      toast({
+        title: 'Upload successful',
+        description: 'Your resource was uploaded and submitted for review.'
+      });
+
+      // navigate home after a short delay
+      setTimeout(() => navigate('/'), 1200);
+    } catch (err: any) {
+      console.error('Upload failed', err);
+      toast({ title: 'Upload failed', description: err.message ?? String(err) });
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -93,6 +163,8 @@ const Upload = () => {
               <Label htmlFor="courseCode">Course Code *</Label>
               <Input 
                 id="courseCode" 
+                value={courseCode}
+                onChange={(e) => setCourseCode(e.target.value)}
                 placeholder="e.g., CS 201" 
                 required 
                 className="h-12"
@@ -104,6 +176,8 @@ const Upload = () => {
               <Label htmlFor="title">Title *</Label>
               <Input 
                 id="title" 
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g., Final Exam Questions 2023" 
                 required 
                 className="h-12"
@@ -113,7 +187,7 @@ const Upload = () => {
             {/* Type */}
             <div className="space-y-2">
               <Label htmlFor="type">Resource Type *</Label>
-              <Select required>
+              <Select required onValueChange={(v) => setResourceType(v as any)}>
                 <SelectTrigger className="h-12">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
@@ -128,7 +202,7 @@ const Upload = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="year">Year *</Label>
-                <Select required>
+                <Select required onValueChange={(v) => setYear(v)}>
                   <SelectTrigger className="h-12">
                     <SelectValue placeholder="Select year" />
                   </SelectTrigger>
@@ -143,7 +217,7 @@ const Upload = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="semester">Semester *</Label>
-                <Select required>
+                <Select required onValueChange={(v) => setSemester(v)}>
                   <SelectTrigger className="h-12">
                     <SelectValue placeholder="Select semester" />
                   </SelectTrigger>
@@ -158,7 +232,7 @@ const Upload = () => {
             {/* Level */}
             <div className="space-y-2">
               <Label htmlFor="level">Level</Label>
-              <Select>
+              <Select onValueChange={(v) => setLevel(v)}>
                 <SelectTrigger className="h-12">
                   <SelectValue placeholder="Select level" />
                 </SelectTrigger>
@@ -220,6 +294,8 @@ const Upload = () => {
               <Label htmlFor="description">Description (Optional)</Label>
               <Textarea 
                 id="description" 
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 placeholder="Add any additional information..."
                 className="min-h-[100px]"
               />
@@ -267,9 +343,10 @@ const Upload = () => {
             {/* Submit */}
             <Button 
               type="submit" 
+              disabled={uploading || authLoading}
               className="w-full h-12 text-base bg-primary hover:bg-primary-hover"
             >
-              Submit for Review
+              {uploading ? 'Uploading...' : 'Submit for Review'}
             </Button>
           </form>
         </Card>
