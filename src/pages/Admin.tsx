@@ -1,81 +1,143 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, CheckCircle, XCircle, Eye } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, Eye, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAdminCheck } from "@/hooks/useAdminCheck";
 
 interface PendingResource {
   id: string;
   title: string;
-  courseCode: string;
+  course_code: string;
   type: "note" | "question";
-  uploader: string;
-  uploadDate: string;
+  contributor: {
+    name: string;
+  };
+  created_at: string;
   verified: boolean;
 }
-
-const mockPendingResources: PendingResource[] = [
-  {
-    id: "1",
-    title: "Final Exam Questions 2024",
-    courseCode: "CS 201",
-    type: "question",
-    uploader: "John Doe",
-    uploadDate: "2024-01-15",
-    verified: false,
-  },
-  {
-    id: "2",
-    title: "Chapter 5 Lecture Notes",
-    courseCode: "MATH 301",
-    type: "note",
-    uploader: "Jane Smith",
-    uploadDate: "2024-01-14",
-    verified: false,
-  },
-  {
-    id: "3",
-    title: "Mid-term Past Questions",
-    courseCode: "PHY 202",
-    type: "question",
-    uploader: "Mike Johnson",
-    uploadDate: "2024-01-13",
-    verified: false,
-  },
-];
 
 const Admin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [resources, setResources] = useState<PendingResource[]>(mockPendingResources);
+  const { isAdmin, loading: adminCheckLoading } = useAdminCheck();
+  const [resources, setResources] = useState<PendingResource[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleApprove = (id: string, title: string) => {
-    setResources(resources.filter(r => r.id !== id));
-    toast({
-      title: "Resource approved",
-      description: `"${title}" has been published`,
-    });
+  useEffect(() => {
+    if (!adminCheckLoading && !isAdmin) {
+      toast({
+        title: "Access denied",
+        description: "You don't have admin permissions",
+        variant: "destructive",
+      });
+      navigate("/");
+    }
+  }, [isAdmin, adminCheckLoading, navigate, toast]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchPendingResources();
+    }
+  }, [isAdmin]);
+
+  const fetchPendingResources = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("resources")
+        .select(`
+          id,
+          title,
+          course_code,
+          type,
+          created_at,
+          verified,
+          contributor:profiles!contributor_id(name)
+        `)
+        .eq("verified", false)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setResources(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error loading resources",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleReject = (id: string, title: string) => {
-    setResources(resources.filter(r => r.id !== id));
-    toast({
-      title: "Resource rejected",
-      description: `"${title}" has been removed`,
-      variant: "destructive",
-    });
+  const handleApprove = async (id: string, title: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("resources")
+        .update({
+          verified: true,
+          reviewed_by: user.id,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setResources(resources.filter(r => r.id !== id));
+      toast({
+        title: "Resource approved",
+        description: `"${title}" has been published`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error approving resource",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleToggleVerified = (id: string) => {
-    setResources(resources.map(r => 
-      r.id === id ? { ...r, verified: !r.verified } : r
-    ));
-    toast({
-      title: "Verification status updated",
-    });
+  const handleReject = async (id: string, title: string) => {
+    try {
+      const { error } = await supabase
+        .from("resources")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setResources(resources.filter(r => r.id !== id));
+      toast({
+        title: "Resource rejected",
+        description: `"${title}" has been removed`,
+        variant: "destructive",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error rejecting resource",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
+
+  if (adminCheckLoading || loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -118,10 +180,10 @@ const Admin = () => {
               <Card key={resource.id} className="card-academic p-5">
                 <div className="space-y-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1.5">
                         <Badge variant="outline" className="text-xs">
-                          {resource.courseCode}
+                          {resource.course_code}
                         </Badge>
                         <Badge 
                           variant={resource.type === "note" ? "default" : "secondary"}
@@ -129,39 +191,15 @@ const Admin = () => {
                         >
                           {resource.type === "note" ? "Note" : "Question"}
                         </Badge>
-                        {resource.verified && (
-                          <CheckCircle className="h-4 w-4 text-success" />
-                        )}
                       </div>
                       <h3 className="font-medium text-foreground mb-1">{resource.title}</h3>
                       <p className="text-xs text-muted-foreground">
-                        Uploaded by {resource.uploader} on {new Date(resource.uploadDate).toLocaleDateString()}
+                        Uploaded by {resource.contributor.name} on {new Date(resource.created_at).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 gap-2 h-10"
-                      onClick={() => toast({ title: "Opening preview..." })}
-                    >
-                      <Eye className="h-4 w-4" />
-                      Preview
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 gap-2 h-10"
-                      onClick={() => handleToggleVerified(resource.id)}
-                    >
-                      <CheckCircle className="h-4 w-4" />
-                      {resource.verified ? "Unverify" : "Verify"}
-                    </Button>
-                  </div>
-
-                  <div className="flex gap-2 pt-2 border-t border-border">
+                  <div className="flex gap-2 pt-2">
                     <Button
                       variant="default"
                       className="flex-1 gap-2 h-10 bg-success hover:bg-success/90"

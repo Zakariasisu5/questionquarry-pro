@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Course from "./pages/Course";
 import Upload from "./pages/Upload";
 import Admin from "./pages/Admin";
+import Auth from "./pages/Auth";
 import Bookmarks from "./pages/Bookmarks";
 import NotFound from "./pages/NotFound";
 
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/course/:courseCode" element={<Course />} />
           <Route path="/upload" element={<Upload />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/auth" element={<Auth />} />
           <Route path="/bookmarks" element={<Bookmarks />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

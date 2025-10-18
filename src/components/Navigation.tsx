@@ -2,12 +2,15 @@ import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Menu, Home, Upload, Star, Shield, BookOpen } from "lucide-react";
+import { Menu, Home, Upload, Star, Shield, BookOpen, LogOut, LogIn, User } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Separator } from "@/components/ui/separator";
 
 export const Navigation = () => {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, signOut } = useAuth();
 
   const menuItems = [
     { icon: Home, label: "Home", path: "/" },
@@ -19,6 +22,12 @@ export const Navigation = () => {
   const handleNavigate = (path: string) => {
     navigate(path);
     setOpen(false);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    setOpen(false);
+    navigate("/auth");
   };
 
   const isActive = (path: string) => location.pathname === path;
@@ -58,6 +67,35 @@ export const Navigation = () => {
               );
             })}
           </nav>
+
+          {/* User Section */}
+          <div className="border-t pt-4">
+            {user ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium truncate">{user.email}</span>
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={handleSignOut}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign Out
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="default"
+                className="w-full justify-start"
+                onClick={() => handleNavigate("/auth")}
+              >
+                <LogIn className="h-4 w-4 mr-2" />
+                Sign In
+              </Button>
+            )}
+          </div>
 
           {/* Footer */}
           <div className="border-t pt-4 mt-4">
