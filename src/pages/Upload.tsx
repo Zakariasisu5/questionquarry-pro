@@ -123,7 +123,19 @@ const Upload = () => {
       setTimeout(() => navigate('/'), 1200);
     } catch (err: any) {
       console.error('Upload failed', err);
-      toast({ title: 'Upload failed', description: err.message ?? String(err) });
+
+      const msg = err?.message ?? String(err);
+
+      // Detect common storage bucket missing error and provide guidance
+      if (msg.toLowerCase().includes('bucket') || msg.toLowerCase().includes('not found')) {
+        toast({
+          title: 'Storage bucket not found',
+          description:
+            "The storage bucket 'resources' was not found. Create it in Supabase Cloud: Project → Storage → Buckets → New bucket (name: resources). Then retry.",
+        });
+      } else {
+        toast({ title: 'Upload failed', description: msg });
+      }
     } finally {
       setUploading(false);
     }

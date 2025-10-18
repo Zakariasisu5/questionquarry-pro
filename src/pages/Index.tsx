@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SearchBar } from "@/components/SearchBar";
 import { CourseCard } from "@/components/CourseCard";
 import { ResourceCard } from "@/components/ResourceCard";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { BookOpen, Upload, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 // Mock data
 const mockCourses = [
@@ -44,9 +45,46 @@ const mockRecentUploads = [
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [bookmarkedItems, setBookmarkedItems] = useState<Set<string>>(new Set(["2"]));
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Debounced search effect
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim().length === 0) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+
+    const q = searchQuery.trim();
+    const handle = setTimeout(async () => {
+      try {
+        setSearchLoading(true);
+        // Search title or course_code using ilike (case-insensitive)
+        const filter = `%${q.replace(/%/g, '\\%')}%`;
+        const { data, error } = await supabase
+          .from('resources')
+          .select('id, title, course_code, type, verified, file_url, created_at')
+          .or(`title.ilike.${filter},course_code.ilike.${filter}`)
+          .eq('verified', true)
+          .limit(50);
+
+        if (error) throw error;
+        setSearchResults(data ?? []);
+      } catch (err: any) {
+        console.error('Search error', err);
+        toast({ title: 'Search failed', description: err.message ?? String(err) });
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(handle);
+  }, [searchQuery, toast]);
 
   const handleCourseClick = (courseCode: string) => {
     navigate(`/course/${courseCode}`);
@@ -143,27 +181,59 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Recent Uploads */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Recent Uploads</h2>
-            <Button variant="link" className="text-primary h-auto p-0">
-              View All
-            </Button>
-          </div>
-          <div className="grid gap-3">
-            {mockRecentUploads.map((resource) => (
-              <ResourceCard
-                key={resource.id}
-                {...resource}
-                isBookmarked={bookmarkedItems.has(resource.id)}
-                onView={() => handleView(resource.title)}
-                onDownload={() => handleDownload(resource.title)}
-                onBookmark={() => handleBookmark(resource.id)}
-              />
-            ))}
-          </div>
-        </section>
+        {/* Search Results or Recent Uploads */}
+        {searchQuery.trim() ? (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Search Results</h2>
+            </div>
+            <div className="grid gap-3">
+              {searchLoading && <div className="p-4">Searching...</div>}
+              {!searchLoading && searchResults.length === 0 && (
+                <div className="p-4">No results found.</div>
+              )}
+              {!searchLoading && searchResults.map((r) => (
+                <ResourceCard
+                  key={r.id}
+                  id={r.id}
+                  title={r.title}
+                  courseCode={r.course_code}
+                  type={r.type}
+                  year={undefined}
+                  semester={undefined}
+                  examType={undefined}
+                  verified={r.verified}
+                  downloads={0}
+                  isBookmarked={bookmarkedItems.has(r.id)}
+                  onView={() => handleView(r.title)}
+                  onDownload={() => handleDownload(r.title)}
+                  onBookmark={() => handleBookmark(r.id)}
+                />
+              ))}
+            </div>
+          </section>
+        ) : (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Recent Uploads</h2>
+              <Button variant="link" className="text-primary h-auto p-0">
+                View All
+              </Button>
+            </div>
+            <div className="grid gap-3">
+              {mockRecentUploads.map((resource) => (
+                <ResourceCard
+                  key={resource.id}
+                  {...resource}
+                  isBookmarked={bookmarkedItems.has(resource.id)}
+                  onView={() => handleView(resource.title)}
+                  onDownload={() => handleDownload(resource.title)}
+                  onBookmark={() => handleBookmark(resource.id)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Stats */}
         <section className="card-academic p-6 text-center space-y-3">
