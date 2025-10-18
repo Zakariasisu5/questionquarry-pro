@@ -14,16 +14,121 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      resources: {
+        Row: {
+          contributor_id: string
+          course_code: string
+          created_at: string
+          file_url: string
+          id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          title: string
+          type: Database["public"]["Enums"]["resource_type"]
+          updated_at: string
+          verified: boolean
+        }
+        Insert: {
+          contributor_id: string
+          course_code: string
+          created_at?: string
+          file_url: string
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          title: string
+          type: Database["public"]["Enums"]["resource_type"]
+          updated_at?: string
+          verified?: boolean
+        }
+        Update: {
+          contributor_id?: string
+          course_code?: string
+          created_at?: string
+          file_url?: string
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          title?: string
+          type?: Database["public"]["Enums"]["resource_type"]
+          updated_at?: string
+          verified?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resources_contributor_id_fkey"
+            columns: ["contributor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resources_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "student"
+      resource_type: "note" | "question"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +255,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "student"],
+      resource_type: ["note", "question"],
+    },
   },
 } as const
