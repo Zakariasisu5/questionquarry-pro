@@ -21,6 +21,8 @@ const Upload = () => {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const { user, loading: authLoading } = useAuth();
+  // bucket config (allow override via env)
+  const BUCKET_NAME = (import.meta.env.VITE_SUPABASE_BUCKET as string) || 'resources';
 
   // form fields
   const [courseCode, setCourseCode] = useState("");
@@ -31,6 +33,28 @@ const Upload = () => {
   const [level, setLevel] = useState("");
   const [description, setDescription] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [bucketMissing, setBucketMissing] = useState(false);
+
+  // Check if storage bucket exists to avoid attempting upload to a missing bucket
+  useEffect(() => {
+    const checkBucket = async () => {
+      try {
+        // attempt to list root of the bucket; if bucket doesn't exist this should error
+        const { error } = await supabase.storage.from(BUCKET_NAME).list('', { limit: 1 });
+        if (error) {
+          console.warn('Storage bucket check error', error.message);
+          setBucketMissing(true);
+        } else {
+          setBucketMissing(false);
+        }
+      } catch (err) {
+        console.warn('Storage bucket check failed', err);
+        setBucketMissing(true);
+      }
+    };
+
+    checkBucket();
+  }, [BUCKET_NAME]);
 
   const getFileIcon = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase();
@@ -84,8 +108,12 @@ const Upload = () => {
     setUploading(true);
 
     try {
-      // Ensure you have created a storage bucket named 'resources' in Supabase
-      const bucket = 'resources';
+      console.debug('Uploading file, user:', user);
+      // also check session for debugging
+      supabase.auth.getSession().then(({ data }) => console.debug('Supabase session:', data));
+  // Use configured bucket name
+  const bucket = BUCKET_NAME;
+  if (bucketMissing) throw new Error(`Bucket '${bucket}' not found`);
       const filePath = `${user.id}/${Date.now()}_${file.name}`;
 
       const { error: uploadError } = await supabase.storage
@@ -99,24 +127,45 @@ const Upload = () => {
       const publicUrl = publicData?.publicUrl ?? '';
 
       // Insert resource record for review
-      const { data: insertData, error: insertError } = await supabase
-        .from('resources')
-        .insert({
-          contributor_id: user.id,
-          course_code: courseCode,
-          title,
-          type: resourceType || 'note',
-          file_url: publicUrl,
-          verified: false
-        })
-        .select()
-        .maybeSingle();
+      let insertData: any = null;
+      try {
+        const res = await supabase
+          .from('resources')
+          .insert({
+            contributor_id: user.id,
+            course_code: courseCode,
+            title,
+            type: resourceType || 'note',
+            file_url: publicUrl,
+            verified: false
+          })
+          .select()
+          .maybeSingle();
 
-      if (insertError) throw insertError;
+        if (res.error) throw res.error;
+        insertData = res.data;
+      } catch (insertError) {
+        // Attempt automatic cleanup of uploaded file
+        try {
+          const { error: removeErr } = await supabase.storage.from(bucket).remove([filePath]);
+          if (removeErr) {
+            console.warn('Failed to remove uploaded file after insert failure', removeErr);
+            toast({ title: 'Upload cleanup failed', description: `Could not remove uploaded file: ${removeErr.message ?? String(removeErr)}` });
+          } else {
+            toast({ title: 'Upload rolled back', description: 'Uploaded file was removed because DB insert failed.' });
+          }
+        } catch (cleanupErr) {
+          console.error('Cleanup error', cleanupErr);
+          toast({ title: 'Upload cleanup error', description: String(cleanupErr) });
+        }
+
+        // rethrow original insert error to be handled by outer catch
+        throw insertError;
+      }
 
       toast({
         title: 'Upload successful',
-        description: 'Your resource was uploaded and submitted for review.'
+        description: 'Your resource was uploaded and submitted for review. An admin will review and verify it before it appears publicly.'
       });
 
       // navigate home after a short delay
@@ -131,8 +180,27 @@ const Upload = () => {
         toast({
           title: 'Storage bucket not found',
           description:
-            "The storage bucket 'resources' was not found. Create it in Supabase Cloud: Project → Storage → Buckets → New bucket (name: resources). Then retry.",
+            `The storage bucket '${BUCKET_NAME}' was not found. Create it in Supabase Cloud: Project → Storage → Buckets → New bucket (name: ${BUCKET_NAME}). Then retry.`,
         });
+        return;
+      }
+
+      // Row-level security error: show specific guidance
+      // Postgres RLS violation typically returns SQLSTATE 42501
+      if (err?.code === '42501' || msg.toLowerCase().includes('row-level security') || msg.toLowerCase().includes('violates row-level security')) {
+        // Recommend checking that policies allow authenticated users to insert when contributor_id = auth.uid()
+        toast({
+          title: 'Permission denied (RLS)',
+          description: 'The insert was blocked by a row-level security policy. Ensure a policy allows authenticated users to insert resources where contributor_id = auth.uid().',
+        });
+
+        console.info('RLS guidance: run the following in Supabase SQL editor if missing:');
+        console.info("ALTER TABLE public.resources ENABLE ROW LEVEL SECURITY;");
+        console.info("CREATE POLICY \"Users can insert their own resources\" ON public.resources FOR INSERT TO authenticated WITH CHECK (auth.uid() = contributor_id);");
+
+        // Also log helpful check SQL
+        console.info('Check current policies: SELECT polname, polcmd, polqual FROM pg_policy WHERE polrelid = \'' + 'resources' + '\'::regclass;');
+        return;
       } else {
         toast({ title: 'Upload failed', description: msg });
       }
@@ -169,6 +237,12 @@ const Upload = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         <Card className="card-academic p-6">
+          {bucketMissing && (
+            <div className="mb-4 p-3 rounded border border-yellow-300 bg-yellow-50 text-sm text-yellow-800">
+              Storage bucket "{BUCKET_NAME}" not found. Create it in Supabase Dashboard → Storage → Buckets → New bucket.
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Course Code */}
             <div className="space-y-2">
@@ -355,7 +429,7 @@ const Upload = () => {
             {/* Submit */}
             <Button 
               type="submit" 
-              disabled={uploading || authLoading}
+              disabled={uploading || authLoading || bucketMissing}
               className="w-full h-12 text-base bg-primary hover:bg-primary-hover"
             >
               {uploading ? 'Uploading...' : 'Submit for Review'}
@@ -368,3 +442,28 @@ const Upload = () => {
 };
 
 export default Upload;
+
+function useEffect(effect: () => void | (() => void | undefined), deps: any[]): void {
+  // Minimal shim: run the effect asynchronously after render (approximate React.useEffect timing).
+  // NOTE: This is a lightweight fallback and does NOT fully implement React's effect lifecycle
+  // (no dependency comparison between calls, no reliable cleanup on unmount, etc.).
+  const run = () => {
+    try {
+      const cleanup = effect();
+      if (typeof cleanup === "function" && typeof window !== "undefined") {
+        // Best-effort cleanup: call on page unload to avoid leaks in simple scenarios.
+        const onUnload = () => {
+          try { cleanup(); } catch {}
+        };
+        window.addEventListener("beforeunload", onUnload, { passive: true });
+      }
+    } catch {}
+  };
+
+  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(run);
+  } else {
+    setTimeout(run, 0);
+  }
+}
+

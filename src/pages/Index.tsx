@@ -8,6 +8,7 @@ import { BookOpen, Upload, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Course {
   code: string;
@@ -115,6 +116,8 @@ const Index = () => {
     fetchStats();
   }, []);
 
+  const { user } = useAuth();
+
   // Debounced search effect
   useEffect(() => {
     if (!searchQuery || searchQuery.trim().length === 0) {
@@ -137,7 +140,43 @@ const Index = () => {
           .limit(50);
 
         if (error) throw error;
-        setSearchResults(data ?? []);
+        let results: any[] = data ?? [];
+
+        // If current user exists, also include their own unverified uploads that match the query
+        if (user) {
+          try {
+            const { data: userData, error: userError } = await supabase
+              .from('resources')
+              .select('id, title, course_code, type, verified, file_url, created_at')
+              .eq('contributor_id', user.id)
+              .eq('verified', false)
+              .limit(50);
+
+            if (!userError && userData) {
+              // client-side filter to match title or course_code
+              const qLower = q.toLowerCase();
+              const filtered = (userData as any[]).filter((r) => {
+                return (
+                  (r.title || '').toLowerCase().includes(qLower) ||
+                  (r.course_code || '').toLowerCase().includes(qLower)
+                );
+              });
+
+              // merge and dedupe by id
+              const ids = new Set(results.map((r) => r.id));
+              for (const item of filtered) {
+                if (!ids.has(item.id)) {
+                  results.push(item);
+                  ids.add(item.id);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('Error fetching user unverified resources', e);
+          }
+        }
+
+        setSearchResults(results);
       } catch (err: any) {
         console.error('Search error', err);
         toast({ title: 'Search failed', description: err.message ?? String(err) });
@@ -258,6 +297,9 @@ const Index = () => {
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Search Results</h2>
+              {user && (
+                <div className="text-xs text-muted-foreground">Showing verified results plus your pending uploads</div>
+              )}
             </div>
             <div className="grid gap-3">
               {searchLoading && <div className="p-4">Searching...</div>}
