@@ -27,11 +27,14 @@ interface PendingResource {
   title: string;
   course_code: string;
   type: "note" | "question";
+  file_url?: string | null;
+  contributor_id?: string | null;
   contributor: {
     name: string;
   };
   created_at: string;
   verified: boolean;
+  publicUrl?: string | null;
 }
 
 const Admin = () => {
@@ -364,7 +367,7 @@ const Admin = () => {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 bg-primary text-primary-foreground shadow-lg">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <Button 
               variant="ghost" 
               size="icon"
@@ -396,51 +399,61 @@ const Admin = () => {
           </Card>
         ) : (
           <div className="space-y-3">
-            {resources.map((resource) => (
-              <Card key={resource.id} className="card-academic p-5">
-                <div className="space-y-4">
-                  <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <Badge variant="outline" className="text-xs">
-                          {resource.course_code}
-                        </Badge>
-                        <Badge 
-                          variant={resource.type === "note" ? "default" : "secondary"}
-                          className="text-xs"
-                        >
-                          {resource.type === "note" ? "Note" : "Question"}
-                        </Badge>
+              {resources.map((resource) => (
+                <Card key={resource.id} className="card-academic p-5">
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <Badge variant="outline" className="text-xs">
+                            {resource.course_code}
+                          </Badge>
+                          <Badge 
+                            variant={resource.type === "note" ? "default" : "secondary"}
+                            className="text-xs"
+                          >
+                            {resource.type === "note" ? "Note" : "Question"}
+                          </Badge>
+                        </div>
+                        <h3 className="font-medium text-foreground mb-1">{resource.title}</h3>
+                        <p className="text-xs text-muted-foreground">
+                          Uploaded by {resource.contributor.name} on {new Date(resource.created_at).toLocaleDateString()}
+                        </p>
                       </div>
-                      <h3 className="font-medium text-foreground mb-1">{resource.title}</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Uploaded by {resource.contributor.name} on {new Date(resource.created_at).toLocaleDateString()}
-                      </p>
+
+                      <div className="flex flex-col sm:flex-row gap-2 pt-2 w-full sm:w-auto">
+                        <Button
+                          variant="default"
+                          className="w-full sm:w-auto flex-1 gap-2 h-10 bg-success hover:bg-success/90"
+                          onClick={() => handleApprove(resource.id, resource.title)}
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                          Approve
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          className="w-full sm:w-auto flex-1 gap-2 h-10"
+                          onClick={() => handleReject(resource.id, resource.title)}
+                        >
+                          <XCircle className="h-4 w-4" />
+                          Reject
+                        </Button>
+                        {resource.publicUrl && (
+                          <Button
+                            variant="outline"
+                            className="w-full sm:w-auto flex-1 gap-2 h-10"
+                            onClick={() => window.open(resource.publicUrl, '_blank')}
+                          >
+                            <Eye className="h-4 w-4" />
+                            View file
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
-
-                  <div className="flex gap-2 pt-2">
-                    <Button
-                      variant="default"
-                      className="flex-1 gap-2 h-10 bg-success hover:bg-success/90"
-                      onClick={() => handleApprove(resource.id, resource.title)}
-                    >
-                      <CheckCircle className="h-4 w-4" />
-                      Approve
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      className="flex-1 gap-2 h-10"
-                      onClick={() => handleReject(resource.id, resource.title)}
-                    >
-                      <XCircle className="h-4 w-4" />
-                      Reject
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
+                </Card>
+              ))}
+            </div>
         )}
 
         {/* Orphaned storage files (uploaded but no DB record) */}
