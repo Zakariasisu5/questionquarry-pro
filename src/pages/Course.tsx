@@ -1,56 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { FilterBar } from "@/components/FilterBar";
 import { ResourceCard } from "@/components/ResourceCard";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-// Mock data
-const mockResources = [
-  { 
-    id: "1", 
-    title: "Final Exam Questions 2023", 
-    courseCode: "CS 201", 
-    type: "question" as const,
-    year: "2023",
-    semester: "Second Semester",
-    examType: "Final",
-    verified: true,
-    downloads: 234,
-  },
-  { 
-    id: "2", 
-    title: "Mid-term Questions 2023", 
-    courseCode: "CS 201", 
-    type: "question" as const,
-    year: "2023",
-    semester: "First Semester",
-    examType: "Mid-term",
-    verified: true,
-    downloads: 189,
-  },
-  { 
-    id: "3", 
-    title: "Complete Lecture Notes - Chapter 1-5", 
-    courseCode: "CS 201", 
-    type: "note" as const,
-    year: "2024",
-    semester: "First Semester",
-    verified: true,
-    downloads: 456,
-  },
-  { 
-    id: "4", 
-    title: "Algorithm Analysis Notes", 
-    courseCode: "CS 201", 
-    type: "note" as const,
-    year: "2024",
-    semester: "First Semester",
-    verified: false,
-    downloads: 123,
-  },
-];
+import { supabase } from "@/integrations/supabase/client";
 
 const Course = () => {
   const { courseCode } = useParams();
@@ -61,6 +16,39 @@ const Course = () => {
   const [selectedSemester, setSelectedSemester] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [bookmarkedItems, setBookmarkedItems] = useState<Set<string>>(new Set());
+  const [resources, setResources] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch resources for this course
+  useEffect(() => {
+    const fetchResources = async () => {
+      if (!courseCode) return;
+      
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('resources')
+          .select('*')
+          .eq('course_code', courseCode)
+          .eq('verified', true)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setResources(data || []);
+      } catch (err) {
+        console.error('Error fetching resources:', err);
+        toast({
+          title: "Error loading resources",
+          description: "Please try again later",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchResources();
+  }, [courseCode, toast]);
 
   const handleClearFilters = () => {
     setSelectedYear("all");
@@ -80,21 +68,21 @@ const Course = () => {
     setBookmarkedItems(newBookmarks);
   };
 
-  const handleDownload = (title: string) => {
+  const handleDownload = (fileUrl: string, title: string) => {
+    window.open(fileUrl, '_blank');
     toast({ 
       title: "Download started", 
       description: `Downloading: ${title}` 
     });
   };
 
-  const handleView = (title: string) => {
+  const handleView = (fileUrl: string, title: string) => {
+    window.open(fileUrl, '_blank');
     toast({ title: "Opening preview", description: title });
   };
 
   // Filter resources
-  const filteredResources = mockResources.filter((resource) => {
-    if (selectedYear !== "all" && resource.year !== selectedYear) return false;
-    if (selectedSemester !== "all" && resource.semester?.toLowerCase() !== `${selectedSemester} semester`) return false;
+  const filteredResources = resources.filter((resource) => {
     if (selectedType !== "all" && resource.type !== selectedType) return false;
     return true;
   });
@@ -140,30 +128,48 @@ const Course = () => {
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">
-              {filteredResources.length} Resources Found
+              {loading ? "Loading..." : `${filteredResources.length} Resources Found`}
             </h2>
           </div>
           
-          {filteredResources.length === 0 ? (
+          {loading ? (
             <div className="card-academic p-8 text-center">
-              <p className="text-muted-foreground">No resources match your filters</p>
-              <Button 
-                variant="link" 
-                className="mt-2"
-                onClick={handleClearFilters}
-              >
-                Clear filters
-              </Button>
+              <p className="text-muted-foreground">Loading resources...</p>
+            </div>
+          ) : filteredResources.length === 0 ? (
+            <div className="card-academic p-8 text-center">
+              <p className="text-muted-foreground">
+                {resources.length === 0 
+                  ? "No resources available for this course yet" 
+                  : "No resources match your filters"}
+              </p>
+              {resources.length > 0 && (
+                <Button 
+                  variant="link" 
+                  className="mt-2"
+                  onClick={handleClearFilters}
+                >
+                  Clear filters
+                </Button>
+              )}
             </div>
           ) : (
             <div className="grid gap-3">
               {filteredResources.map((resource) => (
                 <ResourceCard
                   key={resource.id}
-                  {...resource}
+                  id={resource.id}
+                  title={resource.title}
+                  courseCode={resource.course_code}
+                  type={resource.type}
+                  year={undefined}
+                  semester={undefined}
+                  examType={undefined}
+                  verified={resource.verified}
+                  downloads={0}
                   isBookmarked={bookmarkedItems.has(resource.id)}
-                  onView={() => handleView(resource.title)}
-                  onDownload={() => handleDownload(resource.title)}
+                  onView={() => handleView(resource.file_url, resource.title)}
+                  onDownload={() => handleDownload(resource.file_url, resource.title)}
                   onBookmark={() => handleBookmark(resource.id)}
                 />
               ))}

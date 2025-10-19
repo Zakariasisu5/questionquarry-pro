@@ -9,47 +9,111 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
-// Mock data
-const mockCourses = [
-  { id: "1", code: "CS 201", name: "Data Structures and Algorithms", notes: 12, questions: 8, updated: "2 days ago" },
-  { id: "2", code: "MATH 301", name: "Calculus III", notes: 15, questions: 10, updated: "1 week ago" },
-  { id: "3", code: "ENG 101", name: "Technical Writing", notes: 8, questions: 5, updated: "3 days ago" },
-  { id: "4", code: "PHY 202", name: "Electromagnetic Theory", notes: 10, questions: 7, updated: "5 days ago" },
-];
-
-const mockRecentUploads = [
-  { 
-    id: "1", 
-    title: "Final Exam Questions 2023", 
-    courseCode: "CS 201", 
-    type: "question" as const,
-    year: "2023",
-    semester: "Second Semester",
-    examType: "Final",
-    verified: true,
-    downloads: 234,
-    isBookmarked: false
-  },
-  { 
-    id: "2", 
-    title: "Complete Lecture Notes", 
-    courseCode: "MATH 301", 
-    type: "note" as const,
-    year: "2024",
-    semester: "First Semester",
-    verified: true,
-    downloads: 456,
-    isBookmarked: true
-  },
-];
+interface Course {
+  code: string;
+  name: string;
+  notes: number;
+  questions: number;
+  updated: string;
+}
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [bookmarkedItems, setBookmarkedItems] = useState<Set<string>>(new Set(["2"]));
+  const [bookmarkedItems, setBookmarkedItems] = useState<Set<string>>(new Set());
+  const [recentUploads, setRecentUploads] = useState<any[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [stats, setStats] = useState({ courses: 0, resources: 0, downloads: 0 });
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Fetch courses
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('resources')
+          .select('course_code, type')
+          .eq('verified', true);
+
+        if (error) throw error;
+
+        // Group by course_code and count types
+        const courseMap = new Map<string, { notes: number; questions: number }>();
+        data?.forEach((resource) => {
+          const code = resource.course_code;
+          if (!courseMap.has(code)) {
+            courseMap.set(code, { notes: 0, questions: 0 });
+          }
+          const counts = courseMap.get(code)!;
+          if (resource.type === 'note') counts.notes++;
+          if (resource.type === 'question') counts.questions++;
+        });
+
+        const coursesArray = Array.from(courseMap.entries()).map(([code, counts]) => ({
+          code,
+          name: code,
+          notes: counts.notes,
+          questions: counts.questions,
+          updated: 'Recently',
+        }));
+
+        setCourses(coursesArray.slice(0, 6));
+      } catch (err) {
+        console.error('Error fetching courses:', err);
+      }
+    };
+
+    fetchCourses();
+  }, []);
+
+  // Fetch recent uploads
+  useEffect(() => {
+    const fetchRecentUploads = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('resources')
+          .select('*')
+          .eq('verified', true)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (error) throw error;
+        setRecentUploads(data || []);
+      } catch (err) {
+        console.error('Error fetching recent uploads:', err);
+      }
+    };
+
+    fetchRecentUploads();
+  }, []);
+
+  // Fetch stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const { data: resources, error: resourcesError } = await supabase
+          .from('resources')
+          .select('course_code', { count: 'exact' })
+          .eq('verified', true);
+
+        if (resourcesError) throw resourcesError;
+
+        const uniqueCourses = new Set(resources?.map(r => r.course_code) || []).size;
+
+        setStats({
+          courses: uniqueCourses,
+          resources: resources?.length || 0,
+          downloads: 0, // This would need to be tracked separately
+        });
+      } catch (err) {
+        console.error('Error fetching stats:', err);
+      }
+    };
+
+    fetchStats();
+  }, []);
 
   // Debounced search effect
   useEffect(() => {
@@ -102,14 +166,16 @@ const Index = () => {
     setBookmarkedItems(newBookmarks);
   };
 
-  const handleDownload = (title: string) => {
+  const handleDownload = (fileUrl: string, title: string) => {
+    window.open(fileUrl, '_blank');
     toast({ 
       title: "Download started", 
       description: `Downloading: ${title}` 
     });
   };
 
-  const handleView = (title: string) => {
+  const handleView = (fileUrl: string, title: string) => {
+    window.open(fileUrl, '_blank');
     toast({ title: "Opening preview", description: title });
   };
 
@@ -167,17 +233,23 @@ const Index = () => {
             </Button>
           </div>
           <div className="grid gap-3">
-            {mockCourses.map((course) => (
-              <CourseCard
-                key={course.id}
-                courseCode={course.code}
-                courseName={course.name}
-                noteCount={course.notes}
-                questionCount={course.questions}
-                lastUpdated={course.updated}
-                onClick={() => handleCourseClick(course.code)}
-              />
-            ))}
+            {courses.length === 0 ? (
+              <div className="p-4 text-center text-muted-foreground">
+                No courses available yet. Be the first to upload!
+              </div>
+            ) : (
+              courses.map((course, index) => (
+                <CourseCard
+                  key={`${course.code}-${index}`}
+                  courseCode={course.code}
+                  courseName={course.name}
+                  noteCount={course.notes}
+                  questionCount={course.questions}
+                  lastUpdated={course.updated}
+                  onClick={() => handleCourseClick(course.code)}
+                />
+              ))
+            )}
           </div>
         </section>
 
@@ -205,8 +277,8 @@ const Index = () => {
                   verified={r.verified}
                   downloads={0}
                   isBookmarked={bookmarkedItems.has(r.id)}
-                  onView={() => handleView(r.title)}
-                  onDownload={() => handleDownload(r.title)}
+                  onView={() => handleView(r.file_url, r.title)}
+                  onDownload={() => handleDownload(r.file_url, r.title)}
                   onBookmark={() => handleBookmark(r.id)}
                 />
               ))}
@@ -221,16 +293,30 @@ const Index = () => {
               </Button>
             </div>
             <div className="grid gap-3">
-              {mockRecentUploads.map((resource) => (
-                <ResourceCard
-                  key={resource.id}
-                  {...resource}
-                  isBookmarked={bookmarkedItems.has(resource.id)}
-                  onView={() => handleView(resource.title)}
-                  onDownload={() => handleDownload(resource.title)}
-                  onBookmark={() => handleBookmark(resource.id)}
-                />
-              ))}
+              {recentUploads.length === 0 ? (
+                <div className="p-4 text-center text-muted-foreground">
+                  No resources uploaded yet. Be the first!
+                </div>
+              ) : (
+                recentUploads.map((resource) => (
+                  <ResourceCard
+                    key={resource.id}
+                    id={resource.id}
+                    title={resource.title}
+                    courseCode={resource.course_code}
+                    type={resource.type}
+                    year={undefined}
+                    semester={undefined}
+                    examType={undefined}
+                    verified={resource.verified}
+                    downloads={0}
+                    isBookmarked={bookmarkedItems.has(resource.id)}
+                    onView={() => handleView(resource.file_url, resource.title)}
+                    onDownload={() => handleDownload(resource.file_url, resource.title)}
+                    onBookmark={() => handleBookmark(resource.id)}
+                  />
+                ))
+              )}
             </div>
           </section>
         )}
@@ -240,15 +326,15 @@ const Index = () => {
           <h3 className="text-lg font-semibold">Community Stats</h3>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <p className="text-2xl font-bold text-primary">240</p>
+              <p className="text-2xl font-bold text-primary">{stats.courses}</p>
               <p className="text-xs text-muted-foreground">Courses</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-secondary">1.2K</p>
+              <p className="text-2xl font-bold text-secondary">{stats.resources}</p>
               <p className="text-xs text-muted-foreground">Resources</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-success">45K</p>
+              <p className="text-2xl font-bold text-success">{stats.downloads}</p>
               <p className="text-xs text-muted-foreground">Downloads</p>
             </div>
           </div>
