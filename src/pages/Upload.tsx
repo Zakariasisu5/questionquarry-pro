@@ -108,6 +108,30 @@ const Upload = () => {
     setUploading(true);
 
     try {
+      // Ensure the auth user has a corresponding profile row. If the profile is missing
+      // RLS policies that reference profiles (contributor_id -> profiles.id) will block inserts.
+      try {
+        const { data: profile, error: profileErr } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profileErr) console.warn('Failed to check profile existence', profileErr);
+        if (!profile) {
+          toast({
+            title: 'Missing profile',
+            description:
+              'Your account has no profile row yet. Wait a moment (the profile is created when you sign up) or sign out and sign in again. If the problem persists ask an admin to create a profile for your user id in the database.',
+            variant: 'destructive',
+          });
+          setUploading(false);
+          return;
+        }
+      } catch (profileCheckErr) {
+        console.warn('Profile existence check failed', profileCheckErr);
+      }
+
       console.debug('Uploading file, user:', user);
       // also check session for debugging
       supabase.auth.getSession().then(({ data }) => console.debug('Supabase session:', data));
