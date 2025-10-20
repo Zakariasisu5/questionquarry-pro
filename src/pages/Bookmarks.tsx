@@ -1,53 +1,64 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ResourceCard } from "@/components/ResourceCard";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-const mockBookmarkedResources = [
-  { 
-    id: "1", 
-    title: "Final Exam Questions 2023", 
-    courseCode: "CS 201", 
-    type: "question" as const,
-    year: "2023",
-    semester: "Second Semester",
-    examType: "Final",
-    verified: true,
-    downloads: 234,
-  },
-  { 
-    id: "2", 
-    title: "Complete Lecture Notes", 
-    courseCode: "MATH 301", 
-    type: "note" as const,
-    year: "2024",
-    semester: "First Semester",
-    verified: true,
-    downloads: 456,
-  },
-];
+import { supabase } from "@/integrations/supabase/client";
+import { useBookmarks } from "@/hooks/useBookmarks";
+import { useAuth } from "@/hooks/useAuth";
 
 const Bookmarks = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [bookmarkedResources, setBookmarkedResources] = useState(mockBookmarkedResources);
+  const { user } = useAuth();
+  const { bookmarkedIds, toggleBookmark } = useBookmarks();
+  const [bookmarkedResources, setBookmarkedResources] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleRemoveBookmark = (id: string) => {
-    setBookmarkedResources(bookmarkedResources.filter(r => r.id !== id));
-    toast({ title: "Removed from bookmarks" });
-  };
+  useEffect(() => {
+    const fetchBookmarkedResources = async () => {
+      if (!user || bookmarkedIds.size === 0) {
+        setBookmarkedResources([]);
+        setLoading(false);
+        return;
+      }
 
-  const handleDownload = (title: string) => {
-    toast({ 
-      title: "Download started", 
-      description: `Downloading: ${title}` 
+      try {
+        const { data, error } = await supabase
+          .from("resources")
+          .select("*")
+          .in("id", Array.from(bookmarkedIds))
+          .eq("verified", true);
+
+        if (error) throw error;
+        setBookmarkedResources(data || []);
+      } catch (error) {
+        console.error("Error fetching bookmarked resources:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load bookmarks",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBookmarkedResources();
+  }, [user, bookmarkedIds, toast]);
+
+  const handleDownload = (fileUrl: string, title: string) => {
+    window.open(fileUrl, "_blank");
+    toast({
+      title: "Download started",
+      description: `Downloading: ${title}`,
     });
   };
 
-  const handleView = (title: string) => {
+  const handleView = (fileUrl: string, title: string) => {
+    window.open(fileUrl, "_blank");
     toast({ title: "Opening preview", description: title });
   };
 
@@ -81,14 +92,18 @@ const Bookmarks = () => {
           </h2>
         </div>
 
-        {bookmarkedResources.length === 0 ? (
+        {loading ? (
+          <Card className="card-academic p-8 text-center">
+            <p className="text-muted-foreground">Loading bookmarks...</p>
+          </Card>
+        ) : bookmarkedResources.length === 0 ? (
           <Card className="card-academic p-8 text-center">
             <Star className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
             <p className="text-muted-foreground mb-2">No bookmarks yet</p>
             <p className="text-sm text-muted-foreground">
               Start bookmarking resources to access them quickly
             </p>
-            <Button 
+            <Button
               variant="default"
               className="mt-4"
               onClick={() => navigate("/")}
@@ -101,11 +116,18 @@ const Bookmarks = () => {
             {bookmarkedResources.map((resource) => (
               <ResourceCard
                 key={resource.id}
-                {...resource}
+                id={resource.id}
+                title={resource.title}
+                courseCode={resource.course_code}
+                type={resource.type}
+                year={resource.year}
+                semester={resource.semester}
+                verified={resource.verified}
+                downloads={0}
                 isBookmarked={true}
-                onView={() => handleView(resource.title)}
-                onDownload={() => handleDownload(resource.title)}
-                onBookmark={() => handleRemoveBookmark(resource.id)}
+                onView={() => handleView(resource.file_url, resource.title)}
+                onDownload={() => handleDownload(resource.file_url, resource.title)}
+                onBookmark={() => toggleBookmark(resource.id)}
               />
             ))}
           </div>

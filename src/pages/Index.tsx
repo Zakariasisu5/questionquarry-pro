@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useBookmarks } from "@/hooks/useBookmarks";
 
 interface Course {
   code: string;
@@ -22,12 +23,13 @@ const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [bookmarkedItems, setBookmarkedItems] = useState<Set<string>>(new Set());
   const [recentUploads, setRecentUploads] = useState<any[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [stats, setStats] = useState({ courses: 0, resources: 0, downloads: 0 });
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { bookmarkedIds, toggleBookmark } = useBookmarks();
 
   // Fetch courses
   useEffect(() => {
@@ -116,8 +118,6 @@ const Index = () => {
     fetchStats();
   }, []);
 
-  const { user } = useAuth();
-
   // Debounced search effect
   useEffect(() => {
     if (!searchQuery || searchQuery.trim().length === 0) {
@@ -193,17 +193,6 @@ const Index = () => {
     navigate(`/course/${courseCode}`);
   };
 
-  const handleBookmark = (id: string) => {
-    const newBookmarks = new Set(bookmarkedItems);
-    if (newBookmarks.has(id)) {
-      newBookmarks.delete(id);
-      toast({ title: "Removed from bookmarks" });
-    } else {
-      newBookmarks.add(id);
-      toast({ title: "Added to bookmarks" });
-    }
-    setBookmarkedItems(newBookmarks);
-  };
 
   const handleDownload = (fileUrl: string, title: string) => {
     window.open(fileUrl, '_blank');
@@ -318,10 +307,10 @@ const Index = () => {
                   examType={undefined}
                   verified={r.verified}
                   downloads={0}
-                  isBookmarked={bookmarkedItems.has(r.id)}
+                  isBookmarked={bookmarkedIds.has(r.id)}
                   onView={() => handleView(r.file_url, r.title)}
                   onDownload={() => handleDownload(r.file_url, r.title)}
-                  onBookmark={() => handleBookmark(r.id)}
+                  onBookmark={() => toggleBookmark(r.id)}
                 />
               ))}
             </div>
@@ -352,10 +341,10 @@ const Index = () => {
                     examType={undefined}
                     verified={resource.verified}
                     downloads={0}
-                    isBookmarked={bookmarkedItems.has(resource.id)}
+                    isBookmarked={bookmarkedIds.has(resource.id)}
                     onView={() => handleView(resource.file_url, resource.title)}
                     onDownload={() => handleDownload(resource.file_url, resource.title)}
-                    onBookmark={() => handleBookmark(resource.id)}
+                    onBookmark={() => toggleBookmark(resource.id)}
                   />
                 ))
               )}

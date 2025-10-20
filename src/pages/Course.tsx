@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useBookmarks } from "@/hooks/useBookmarks";
 
 const Course = () => {
   const { courseCode } = useParams();
@@ -15,9 +16,9 @@ const Course = () => {
   const [selectedYear, setSelectedYear] = useState<string>("all");
   const [selectedSemester, setSelectedSemester] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
-  const [bookmarkedItems, setBookmarkedItems] = useState<Set<string>>(new Set());
   const [resources, setResources] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { bookmarkedIds, toggleBookmark } = useBookmarks();
 
   // Fetch resources for this course
   useEffect(() => {
@@ -56,17 +57,6 @@ const Course = () => {
     setSelectedType("all");
   };
 
-  const handleBookmark = (id: string) => {
-    const newBookmarks = new Set(bookmarkedItems);
-    if (newBookmarks.has(id)) {
-      newBookmarks.delete(id);
-      toast({ title: "Removed from bookmarks" });
-    } else {
-      newBookmarks.add(id);
-      toast({ title: "Added to bookmarks" });
-    }
-    setBookmarkedItems(newBookmarks);
-  };
 
   const handleDownload = (fileUrl: string, title: string) => {
     window.open(fileUrl, '_blank');
@@ -167,10 +157,10 @@ const Course = () => {
                   examType={undefined}
                   verified={resource.verified}
                   downloads={0}
-                  isBookmarked={bookmarkedItems.has(resource.id)}
+                  isBookmarked={bookmarkedIds.has(resource.id)}
                   onView={() => handleView(resource.file_url, resource.title)}
                   onDownload={() => handleDownload(resource.file_url, resource.title)}
-                  onBookmark={() => handleBookmark(resource.id)}
+                  onBookmark={() => toggleBookmark(resource.id)}
                 />
               ))}
             </div>
