@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import udsLogo from "@/assets/uds-logo.png";
+import udsLogo from "@/assets/logo.jpg";
 
 interface Course {
   code: string;
@@ -191,20 +191,24 @@ const Index = () => {
   }, [searchQuery, toast]);
 
   const handleCourseClick = (courseCode: string) => {
+    // Allow navigation for everyone. If unauthenticated, prompt to sign-in when interacting on the course page.
     if (!user) {
       toast({
-        title: "Login Required",
-        description: "Please login or signup to access course resources",
+        title: "Guest view",
+        description: "You can view resources. Sign in to download, bookmark or upload.",
         variant: "default",
       });
-      navigate("/auth");
-      return;
     }
     navigate(`/course/${courseCode}`);
   };
 
 
   const handleDownload = (fileUrl: string, title: string) => {
+    if (!user) {
+      toast({ title: "Login Required", description: "Please login to download resources" });
+      navigate('/auth');
+      return;
+    }
     window.open(fileUrl, '_blank');
     toast({ 
       title: "Download started", 
@@ -213,6 +217,11 @@ const Index = () => {
   };
 
   const handleView = (fileUrl: string, title: string) => {
+    if (!user) {
+      toast({ title: "Login Required", description: "Please login to view resources" });
+      navigate('/auth');
+      return;
+    }
     window.open(fileUrl, '_blank');
     toast({ title: "Opening preview", description: title });
   };

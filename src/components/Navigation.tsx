@@ -4,14 +4,16 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu, Home, Upload, Star, Shield, LogOut, LogIn, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
-import udsLogo from "@/assets/uds-logo.png";
+import udsLogo from "@/assets/logo.jpg";
 
 export const Navigation = () => {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
+  const { toast } = useToast();
 
   const menuItems = [
     { icon: Home, label: "Home", path: "/" },
@@ -26,9 +28,15 @@ export const Navigation = () => {
   };
 
   const handleSignOut = async () => {
-    await signOut();
-    setOpen(false);
-    navigate("/auth");
+    try {
+      await signOut();
+      setOpen(false);
+      toast({ title: 'Signed out', description: 'You have been signed out', variant: 'default' });
+      navigate('/');
+    } catch (err) {
+      console.error('Sign out failed', err);
+      toast({ title: 'Sign out failed', description: 'Please try again', variant: 'destructive' });
+    }
   };
 
   const isActive = (path: string) => location.pathname === path;
@@ -111,3 +119,7 @@ export const Navigation = () => {
     </Sheet>
   );
 };
+function toast(arg0: { title: string; description: string; variant: string; }) {
+  throw new Error("Function not implemented.");
+}
+

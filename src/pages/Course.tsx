@@ -59,6 +59,12 @@ const Course = () => {
 
 
   const handleDownload = (fileUrl: string, title: string) => {
+    if (!localStorage.getItem('sb-user')) {
+      // fallback check if useAuth isn't available here; redirect to auth
+      toast({ title: "Login Required", description: "Please login to download resources" });
+      navigate('/auth');
+      return;
+    }
     window.open(fileUrl, '_blank');
     toast({ 
       title: "Download started", 
@@ -67,6 +73,11 @@ const Course = () => {
   };
 
   const handleView = (fileUrl: string, title: string) => {
+    if (!localStorage.getItem('sb-user')) {
+      toast({ title: "Login Required", description: "Please login to view resources" });
+      navigate('/auth');
+      return;
+    }
     window.open(fileUrl, '_blank');
     toast({ title: "Opening preview", description: title });
   };
