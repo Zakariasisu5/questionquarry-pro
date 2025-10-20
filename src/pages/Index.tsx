@@ -4,12 +4,13 @@ import { CourseCard } from "@/components/CourseCard";
 import { ResourceCard } from "@/components/ResourceCard";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Upload, Star } from "lucide-react";
+import { Upload, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import udsLogo from "@/assets/uds-logo.png";
 
 interface Course {
   code: string;
@@ -190,6 +191,15 @@ const Index = () => {
   }, [searchQuery, toast]);
 
   const handleCourseClick = (courseCode: string) => {
+    if (!user) {
+      toast({
+        title: "Login Required",
+        description: "Please login or signup to access course resources",
+        variant: "default",
+      });
+      navigate("/auth");
+      return;
+    }
     navigate(`/course/${courseCode}`);
   };
 
@@ -214,7 +224,7 @@ const Index = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <BookOpen className="h-8 w-8" />
+              <img src={udsLogo} alt="UDS Logo" className="h-12 w-12" />
               <div>
                 <h1 className="text-xl font-bold">UDS StudyHub</h1>
                 <p className="text-xs opacity-90">Past Questions & Notes</p>
@@ -237,7 +247,17 @@ const Index = () => {
           <Button 
             variant="outline" 
             className="h-20 flex-col gap-2 btn-tap-target"
-            onClick={() => navigate("/upload")}
+            onClick={() => {
+              if (!user) {
+                toast({
+                  title: "Login Required",
+                  description: "Please login or signup to upload resources",
+                });
+                navigate("/auth");
+              } else {
+                navigate("/upload");
+              }
+            }}
           >
             <Upload className="h-6 w-6" />
             <span className="text-sm">Upload</span>
@@ -245,7 +265,17 @@ const Index = () => {
           <Button 
             variant="outline" 
             className="h-20 flex-col gap-2 btn-tap-target"
-            onClick={() => navigate("/bookmarks")}
+            onClick={() => {
+              if (!user) {
+                toast({
+                  title: "Login Required",
+                  description: "Please login or signup to view bookmarks",
+                });
+                navigate("/auth");
+              } else {
+                navigate("/bookmarks");
+              }
+            }}
           >
             <Star className="h-6 w-6" />
             <span className="text-sm">Bookmarks</span>

@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Menu, Home, Upload, Star, Shield, BookOpen, LogOut, LogIn, User } from "lucide-react";
+import { Menu, Home, Upload, Star, Shield, LogOut, LogIn, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Separator } from "@/components/ui/separator";
+import udsLogo from "@/assets/uds-logo.png";
 
 export const Navigation = () => {
   const [open, setOpen] = useState(false);
@@ -43,7 +44,7 @@ export const Navigation = () => {
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center gap-3 mb-8">
-            <BookOpen className="h-8 w-8 text-primary" />
+            <img src={udsLogo} alt="UDS Logo" className="h-12 w-12" />
             <div>
               <h2 className="text-lg font-bold">UDS StudyHub</h2>
               <p className="text-xs text-muted-foreground">Academic Resources</p>
