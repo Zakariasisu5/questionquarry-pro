@@ -29,7 +29,7 @@ const Index = () => {
   const [stats, setStats] = useState({ courses: 0, resources: 0, downloads: 0 });
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { bookmarkedIds, toggleBookmark } = useBookmarks();
 
   // Fetch courses
@@ -258,6 +258,28 @@ const Index = () => {
           </div>
         </div>
       </header>
+
+      {/* Home auth banner: prompt unauthenticated visitors to sign in */}
+      {(!authLoading && !user) && (() => {
+        const STORAGE_KEY = 'qq:homeAuthBannerDismissed';
+        let dismissed = false;
+        try { dismissed = localStorage.getItem(STORAGE_KEY) === '1'; } catch {}
+        if (dismissed) return null;
+        return (
+          <div className="bg-amber-50 border-b border-amber-200">
+            <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+              <div className="text-sm">
+                <strong className="mr-2">Welcome!</strong>
+                Sign in to upload, download, and bookmark resources.
+              </div>
+              <div className="flex items-center gap-2">
+                <Button onClick={() => navigate('/auth')}>Sign in / Sign up</Button>
+                <Button variant="ghost" onClick={() => { try { localStorage.setItem(STORAGE_KEY, '1'); } catch {} }}>Dismiss</Button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 space-y-8">
