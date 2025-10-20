@@ -203,17 +203,32 @@ const Index = () => {
   };
 
 
-  const handleDownload = (fileUrl: string, title: string) => {
+  const handleDownload = async (resourceId: string, fileUrl: string, title: string) => {
     if (!user) {
       toast({ title: "Login Required", description: "Please login to download resources" });
       navigate('/auth');
       return;
     }
+
+    // Open the file (public URL or signed URL)
     window.open(fileUrl, '_blank');
     toast({ 
       title: "Download started", 
       description: `Downloading: ${title}` 
     });
+
+    // Record the download in the database. If this fails, log but don't block the UX.
+    try {
+      const { error } = await supabase.from('downloads' as any).insert({ resource_id: resourceId, user_id: user.id });
+      if (error) {
+        console.warn('Failed to record download:', error);
+      } else {
+        // Optionally, update the in-memory stats counter
+        setStats((s) => ({ ...s, downloads: s.downloads + 1 }));
+      }
+    } catch (e) {
+      console.warn('Error recording download', e);
+    }
   };
 
   const handleView = (fileUrl: string, title: string) => {
@@ -348,7 +363,7 @@ const Index = () => {
                   downloads={0}
                   isBookmarked={bookmarkedIds.has(r.id)}
                   onView={() => handleView(r.file_url, r.title)}
-                  onDownload={() => handleDownload(r.file_url, r.title)}
+                  onDownload={() => handleDownload(r.id, r.file_url, r.title)}
                   onBookmark={() => toggleBookmark(r.id)}
                 />
               ))}
@@ -382,7 +397,7 @@ const Index = () => {
                     downloads={0}
                     isBookmarked={bookmarkedIds.has(resource.id)}
                     onView={() => handleView(resource.file_url, resource.title)}
-                    onDownload={() => handleDownload(resource.file_url, resource.title)}
+                    onDownload={() => handleDownload(resource.id, resource.file_url, resource.title)}
                     onBookmark={() => toggleBookmark(resource.id)}
                   />
                 ))

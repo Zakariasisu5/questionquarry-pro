@@ -49,12 +49,24 @@ const Bookmarks = () => {
     fetchBookmarkedResources();
   }, [user, bookmarkedIds, toast]);
 
-  const handleDownload = (fileUrl: string, title: string) => {
+  const handleDownload = async (resourceId: string, fileUrl: string, title: string) => {
+    if (!user) {
+      toast({ title: "Login Required", description: "Please login to download resources" });
+      return;
+    }
     window.open(fileUrl, "_blank");
     toast({
       title: "Download started",
       description: `Downloading: ${title}`,
     });
+
+    try {
+      // @ts-expect-error: 'downloads' table is not in the generated types but exists in the database
+      const { error } = await supabase.from('downloads').insert({ resource_id: resourceId, user_id: user.id });
+      if (error) console.warn('Failed to record download:', error);
+    } catch (e) {
+      console.warn('Error recording download', e);
+    }
   };
 
   const handleView = (fileUrl: string, title: string) => {
@@ -126,7 +138,7 @@ const Bookmarks = () => {
                 downloads={0}
                 isBookmarked={true}
                 onView={() => handleView(resource.file_url, resource.title)}
-                onDownload={() => handleDownload(resource.file_url, resource.title)}
+                onDownload={() => handleDownload(resource.id, resource.file_url, resource.title)}
                 onBookmark={() => toggleBookmark(resource.id)}
               />
             ))}

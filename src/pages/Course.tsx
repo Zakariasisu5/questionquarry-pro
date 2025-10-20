@@ -7,6 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import { useAuth } from "@/hooks/useAuth";
 
 const Course = () => {
   const { courseCode } = useParams();
@@ -19,6 +20,7 @@ const Course = () => {
   const [resources, setResources] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { bookmarkedIds, toggleBookmark } = useBookmarks();
+  const { user } = useAuth();
 
   // Fetch resources for this course
   useEffect(() => {
@@ -58,9 +60,8 @@ const Course = () => {
   };
 
 
-  const handleDownload = (fileUrl: string, title: string) => {
-    if (!localStorage.getItem('sb-user')) {
-      // fallback check if useAuth isn't available here; redirect to auth
+  const handleDownload = async (resourceId: string, fileUrl: string, title: string) => {
+    if (!user) {
       toast({ title: "Login Required", description: "Please login to download resources" });
       navigate('/auth');
       return;
@@ -70,6 +71,14 @@ const Course = () => {
       title: "Download started", 
       description: `Downloading: ${title}` 
     });
+
+    try {
+      // @ts-expect-error: 'downloads' table is not in the generated types
+      const { error } = await supabase.from('downloads').insert({ resource_id: resourceId, user_id: user.id });
+      if (error) console.warn('Failed to record download:', error);
+    } catch (e) {
+      console.warn('Error recording download', e);
+    }
   };
 
   const handleView = (fileUrl: string, title: string) => {
@@ -170,7 +179,7 @@ const Course = () => {
                   downloads={0}
                   isBookmarked={bookmarkedIds.has(resource.id)}
                   onView={() => handleView(resource.file_url, resource.title)}
-                  onDownload={() => handleDownload(resource.file_url, resource.title)}
+                  onDownload={() => handleDownload(resource.id, resource.file_url, resource.title)}
                   onBookmark={() => toggleBookmark(resource.id)}
                 />
               ))}
