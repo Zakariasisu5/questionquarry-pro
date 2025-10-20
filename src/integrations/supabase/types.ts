@@ -40,40 +40,55 @@ export type Database = {
           contributor_id: string
           course_code: string
           created_at: string
+          description: string | null
           file_url: string
           id: string
+          level: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          semester: string | null
+          tags: string[] | null
           title: string
           type: Database["public"]["Enums"]["resource_type"]
           updated_at: string
           verified: boolean
+          year: string | null
         }
         Insert: {
           contributor_id: string
           course_code: string
           created_at?: string
+          description?: string | null
           file_url: string
           id?: string
+          level?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          semester?: string | null
+          tags?: string[] | null
           title: string
           type: Database["public"]["Enums"]["resource_type"]
           updated_at?: string
           verified?: boolean
+          year?: string | null
         }
         Update: {
           contributor_id?: string
           course_code?: string
           created_at?: string
+          description?: string | null
           file_url?: string
           id?: string
+          level?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          semester?: string | null
+          tags?: string[] | null
           title?: string
           type?: Database["public"]["Enums"]["resource_type"]
           updated_at?: string
           verified?: boolean
+          year?: string | null
         }
         Relationships: [
           {

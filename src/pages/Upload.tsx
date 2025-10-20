@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -137,7 +137,12 @@ const Upload = () => {
             title,
             type: resourceType || 'note',
             file_url: publicUrl,
-            verified: false
+            verified: false,
+            year: year || null,
+            semester: semester || null,
+            level: level || null,
+            description: description || null,
+            tags: tags.length > 0 ? tags : null
           })
           .select()
           .maybeSingle();
@@ -442,28 +447,4 @@ const Upload = () => {
 };
 
 export default Upload;
-
-function useEffect(effect: () => void | (() => void | undefined), deps: any[]): void {
-  // Minimal shim: run the effect asynchronously after render (approximate React.useEffect timing).
-  // NOTE: This is a lightweight fallback and does NOT fully implement React's effect lifecycle
-  // (no dependency comparison between calls, no reliable cleanup on unmount, etc.).
-  const run = () => {
-    try {
-      const cleanup = effect();
-      if (typeof cleanup === "function" && typeof window !== "undefined") {
-        // Best-effort cleanup: call on page unload to avoid leaks in simple scenarios.
-        const onUnload = () => {
-          try { cleanup(); } catch {}
-        };
-        window.addEventListener("beforeunload", onUnload, { passive: true });
-      }
-    } catch {}
-  };
-
-  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-    window.requestAnimationFrame(run);
-  } else {
-    setTimeout(run, 0);
-  }
-}
 
