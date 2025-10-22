@@ -68,9 +68,58 @@ const Upload = () => {
     return ext?.toUpperCase() || 'Unknown';
   };
 
+  const validateFile = (file: File): string | null => {
+    // File size validation (50MB limit)
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    if (file.size > maxSize) {
+      return 'File size exceeds 50MB limit';
+    }
+
+    // Extension validation
+    const allowedExtensions = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+    if (!allowedExtensions.includes(ext)) {
+      return 'File type not allowed. Supported: PDF, Word, PowerPoint, Excel, and images (JPG, PNG, GIF, WEBP)';
+    }
+
+    // MIME type validation
+    const allowedMimes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp'
+    ];
+    if (!allowedMimes.includes(file.type)) {
+      return 'Invalid file MIME type. Please ensure the file is not corrupted';
+    }
+
+    return null; // Valid
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
+      
+      // Validate file before setting state
+      const validationError = validateFile(selectedFile);
+      if (validationError) {
+        toast({ 
+          title: 'Invalid file', 
+          description: validationError, 
+          variant: 'destructive' 
+        });
+        // Reset file input
+        e.target.value = '';
+        return;
+      }
+
       setFile(selectedFile);
       setFileType(getFileTypeLabel(selectedFile.name));
     }
