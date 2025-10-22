@@ -82,7 +82,7 @@ const Course = () => {
   };
 
   const handleView = (fileUrl: string, title: string) => {
-    if (!localStorage.getItem('sb-user')) {
+    if (!user) {
       toast({ title: "Login Required", description: "Please login to view resources" });
       navigate('/auth');
       return;
