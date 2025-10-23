@@ -198,10 +198,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_download_count: {
-        Args: { resource_uuid: string }
-        Returns: number
-      }
+      get_download_count: { Args: { resource_uuid: string }; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
