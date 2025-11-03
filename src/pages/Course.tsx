@@ -19,6 +19,7 @@ const Course = () => {
   const [selectedType, setSelectedType] = useState<string>("all");
   const [resources, setResources] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloadCounts, setDownloadCounts] = useState<Record<string, number>>({});
   const { bookmarkedIds, toggleBookmark } = useBookmarks();
   const { user } = useAuth();
 
@@ -38,6 +39,21 @@ const Course = () => {
 
         if (error) throw error;
         setResources(data || []);
+
+        // Fetch download counts for all resources
+        if (data && data.length > 0) {
+          const counts: Record<string, number> = {};
+          await Promise.all(
+            data.map(async (resource) => {
+              const { data: countData, error: countError } = await supabase
+                .rpc('get_download_count', { resource_uuid: resource.id });
+              if (!countError && countData !== null) {
+                counts[resource.id] = countData;
+              }
+            })
+          );
+          setDownloadCounts(counts);
+        }
       } catch (err) {
         console.error('Error fetching resources:', err);
         toast({
@@ -76,6 +92,10 @@ const Course = () => {
       // @ts-expect-error: 'downloads' table is not in the generated types
       const { error } = await supabase.from('downloads').insert({ resource_id: resourceId, user_id: user.id });
       if (error) console.warn('Failed to record download:', error);
+      else {
+        // Update the local download count
+        setDownloadCounts(prev => ({ ...prev, [resourceId]: (prev[resourceId] || 0) + 1 }));
+      }
     } catch (e) {
       console.warn('Error recording download', e);
     }
@@ -176,7 +196,7 @@ const Course = () => {
                   semester={undefined}
                   examType={undefined}
                   verified={resource.verified}
-                  downloads={0}
+                  downloads={downloadCounts[resource.id] || 0}
                   isBookmarked={bookmarkedIds.has(resource.id)}
                   onView={() => handleView(resource.file_url, resource.title)}
                   onDownload={() => handleDownload(resource.id, resource.file_url, resource.title)}

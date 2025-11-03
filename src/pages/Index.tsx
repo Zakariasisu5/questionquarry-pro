@@ -27,6 +27,7 @@ const Index = () => {
   const [recentUploads, setRecentUploads] = useState<any[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [stats, setStats] = useState({ courses: 0, resources: 0, downloads: 0 });
+  const [downloadCounts, setDownloadCounts] = useState<Record<string, number>>({});
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -85,6 +86,21 @@ const Index = () => {
 
         if (error) throw error;
         setRecentUploads(data || []);
+
+        // Fetch download counts for recent uploads
+        if (data && data.length > 0) {
+          const counts: Record<string, number> = {};
+          await Promise.all(
+            data.map(async (resource) => {
+              const { data: countData, error: countError } = await supabase
+                .rpc('get_download_count', { resource_uuid: resource.id });
+              if (!countError && countData !== null) {
+                counts[resource.id] = countData;
+              }
+            })
+          );
+          setDownloadCounts(prev => ({ ...prev, ...counts }));
+        }
       } catch (err) {
         console.error('Error fetching recent uploads:', err);
       }
@@ -178,6 +194,21 @@ const Index = () => {
         }
 
         setSearchResults(results);
+
+        // Fetch download counts for search results
+        if (results.length > 0) {
+          const counts: Record<string, number> = {};
+          await Promise.all(
+            results.map(async (resource) => {
+              const { data: countData, error: countError } = await supabase
+                .rpc('get_download_count', { resource_uuid: resource.id });
+              if (!countError && countData !== null) {
+                counts[resource.id] = countData;
+              }
+            })
+          );
+          setDownloadCounts(prev => ({ ...prev, ...counts }));
+        }
       } catch (err: any) {
         console.error('Search error', err);
         toast({ title: 'Search failed', description: err.message ?? String(err) });
@@ -382,7 +413,7 @@ const Index = () => {
                   semester={undefined}
                   examType={undefined}
                   verified={r.verified}
-                  downloads={0}
+                  downloads={downloadCounts[r.id] || 0}
                   isBookmarked={bookmarkedIds.has(r.id)}
                   onView={() => handleView(r.file_url, r.title)}
                   onDownload={() => handleDownload(r.id, r.file_url, r.title)}
@@ -416,7 +447,7 @@ const Index = () => {
                     semester={undefined}
                     examType={undefined}
                     verified={resource.verified}
-                    downloads={0}
+                    downloads={downloadCounts[resource.id] || 0}
                     isBookmarked={bookmarkedIds.has(resource.id)}
                     onView={() => handleView(resource.file_url, resource.title)}
                     onDownload={() => handleDownload(resource.id, resource.file_url, resource.title)}
