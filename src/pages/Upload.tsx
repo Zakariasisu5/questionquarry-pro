@@ -157,8 +157,21 @@ const Upload = () => {
     setUploading(true);
 
     try {
-      // Ensure the auth user has a corresponding profile row. If the profile is missing
-      // RLS policies that reference profiles (contributor_id -> profiles.id) will block inserts.
+      // Verify session is still valid
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData.session) {
+        toast({
+          title: 'Session expired',
+          description: 'Your session has expired. Please sign in again.',
+          variant: 'destructive',
+        });
+        setUploading(false);
+        return;
+      }
+
+      console.log('Session valid, user:', user.id);
+
+      // Ensure the auth user has a corresponding profile row
       try {
         const { data: profile, error: profileErr } = await supabase
           .from('profiles')
@@ -170,8 +183,7 @@ const Upload = () => {
         if (!profile) {
           toast({
             title: 'Missing profile',
-            description:
-              'Your account has no profile row yet. Wait a moment (the profile is created when you sign up) or sign out and sign in again. If the problem persists ask an admin to create a profile for your user id in the database.',
+            description: 'Your account has no profile row. Please sign out and sign in again.',
             variant: 'destructive',
           });
           setUploading(false);
@@ -181,19 +193,26 @@ const Upload = () => {
         console.warn('Profile existence check failed', profileCheckErr);
       }
 
-      console.debug('Uploading file, user:', user);
-      // also check session for debugging
-      supabase.auth.getSession().then(({ data }) => console.debug('Supabase session:', data));
-  // Use configured bucket name
-  const bucket = BUCKET_NAME;
-  if (bucketMissing) throw new Error(`Bucket '${bucket}' not found`);
+      const bucket = BUCKET_NAME;
+      if (bucketMissing) throw new Error(`Bucket '${bucket}' not found`);
+      
       const filePath = `${user.id}/${Date.now()}_${file.name}`;
+      console.log('Attempting upload to:', bucket, 'path:', filePath);
 
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError, data: uploadData } = await supabase.storage
         .from(bucket)
-        .upload(filePath, file, { cacheControl: '3600', upsert: false });
+        .upload(filePath, file, { 
+          cacheControl: '3600', 
+          upsert: false,
+          contentType: file.type
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error details:', uploadError);
+        throw new Error(`File upload failed: ${uploadError.message || 'Unknown error'}`);
+      }
+      
+      console.log('Upload successful:', uploadData);
 
       // Get a public URL for the uploaded file
       const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(filePath);
@@ -252,6 +271,20 @@ const Upload = () => {
       console.error('Upload failed', err);
 
       const msg = err?.message ?? String(err);
+      const isNetworkError = msg.toLowerCase().includes('failed to fetch') || 
+                            msg.toLowerCase().includes('network') ||
+                            err?.name === 'StorageUnknownError';
+
+      // Handle network errors
+      if (isNetworkError) {
+        toast({
+          title: 'Network error',
+          description: 'Failed to connect to storage. Please check your internet connection and try again.',
+          variant: 'destructive',
+        });
+        setUploading(false);
+        return;
+      }
 
       // Detect common storage bucket missing error and provide guidance
       if (msg.toLowerCase().includes('bucket') || msg.toLowerCase().includes('not found')) {
