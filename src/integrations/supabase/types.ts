@@ -100,6 +100,39 @@ export type Database = {
         }
         Relationships: []
       }
+      resource_requests: {
+        Row: {
+          admin_response: string | null
+          course_code: string | null
+          created_at: string
+          id: string
+          question: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_response?: string | null
+          course_code?: string | null
+          created_at?: string
+          id?: string
+          question: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_response?: string | null
+          course_code?: string | null
+          created_at?: string
+          id?: string
+          question?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       resources: {
         Row: {
           contributor_id: string

@@ -7,10 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Upload as UploadIcon, X, FileText, Image as ImageIcon, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Upload as UploadIcon, X, FileText, Image as ImageIcon, FileSpreadsheet, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Navigation } from "@/components/Navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdminCheck } from "@/hooks/useAdminCheck";
 import { supabase } from "@/integrations/supabase/client";
 
 const Upload = () => {
@@ -21,6 +22,7 @@ const Upload = () => {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const { user, loading: authLoading } = useAuth();
+  const { isAdmin, loading: adminLoading } = useAdminCheck();
   // bucket config (allow override via env)
   const BUCKET_NAME = (import.meta.env.VITE_SUPABASE_BUCKET as string) || 'resources';
 
@@ -319,6 +321,73 @@ const Upload = () => {
       setUploading(false);
     }
   };
+
+  if (adminLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-50 bg-primary text-primary-foreground shadow-lg">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="text-primary-foreground"
+                  onClick={() => navigate("/")}
+                >
+                  <ArrowLeft className="h-6 w-6" />
+                </Button>
+                <div>
+                  <h1 className="text-xl font-bold">Upload Resource</h1>
+                </div>
+              </div>
+              <Navigation />
+            </div>
+          </div>
+        </header>
+        <main className="container mx-auto px-4 py-6 text-center">
+          <p>Loading...</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-50 bg-primary text-primary-foreground shadow-lg">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="text-primary-foreground"
+                  onClick={() => navigate("/")}
+                >
+                  <ArrowLeft className="h-6 w-6" />
+                </Button>
+                <div>
+                  <h1 className="text-xl font-bold">Upload Resource</h1>
+                </div>
+              </div>
+              <Navigation />
+            </div>
+          </div>
+        </header>
+        <main className="container mx-auto px-4 py-12">
+          <Card className="max-w-md mx-auto p-8 text-center">
+            <Shield className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-2xl font-bold mb-2">Admin Access Required</h2>
+            <p className="text-muted-foreground mb-6">
+              Only administrators can upload resources. Please contact an admin if you believe you should have access.
+            </p>
+            <Button onClick={() => navigate('/')}>Go to Home</Button>
+          </Card>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

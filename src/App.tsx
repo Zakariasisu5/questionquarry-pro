@@ -11,6 +11,8 @@ import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import Bookmarks from "./pages/Bookmarks";
 import About from "./pages/About";
+import RequestResource from "./pages/RequestResource";
+import StudyAssistant from "./pages/StudyAssistant";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +32,8 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/bookmarks" element={<Bookmarks />} />
           <Route path="/about" element={<About />} />
+          <Route path="/request" element={<RequestResource />} />
+          <Route path="/study-assistant" element={<StudyAssistant />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

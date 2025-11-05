@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Menu, Home, Upload, Star, Shield, LogOut, LogIn, User, Info } from "lucide-react";
+import { Menu, Home, Upload, Star, Shield, LogOut, LogIn, User, Info, MessageSquare, GraduationCap } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
@@ -19,6 +19,8 @@ export const Navigation = () => {
     { icon: Home, label: "Home", path: "/" },
     { icon: Upload, label: "Upload Resource", path: "/upload" },
     { icon: Star, label: "My Bookmarks", path: "/bookmarks" },
+    { icon: MessageSquare, label: "Request Resource", path: "/request" },
+    { icon: GraduationCap, label: "Study Assistant", path: "/study-assistant" },
     { icon: Shield, label: "Admin Panel", path: "/admin" },
     { icon: Info, label: "About", path: "/about" },
   ];
