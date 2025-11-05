@@ -2,7 +2,6 @@ import { Navigation } from "@/components/Navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail } from "lucide-react";
 import developerImage from "@/assets/developer.png";
-import sponsorImage from "@/assets/sponsor.jpg";
 
 const About = () => {
   return (
@@ -15,9 +14,9 @@ const About = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="flex justify-center">
           {/* Developer Section */}
-          <Card className="overflow-hidden">
+          <Card className="overflow-hidden max-w-md w-full">
             <CardHeader className="text-center">
               <div className="flex justify-center mb-4">
                 <img 
@@ -39,26 +38,6 @@ const About = () => {
                   zakariasisu5@gmail.com
                 </a>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Sponsor Section */}
-          <Card className="overflow-hidden">
-            <CardHeader className="text-center">
-              <div className="flex justify-center mb-4">
-                <img 
-                  src={sponsorImage} 
-                  alt="Survival" 
-                  className="w-48 h-48 rounded-full object-cover shadow-lg"
-                />
-              </div>
-              <CardTitle className="text-2xl">Survival</CardTitle>
-              <CardDescription className="text-lg">Sponsor</CardDescription>
-            </CardHeader>
-            <CardContent className="text-center">
-              <p className="text-lg font-medium italic text-muted-foreground">
-                "A leadership for services"
-              </p>
             </CardContent>
           </Card>
         </div>
