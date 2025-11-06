@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, CheckCircle, XCircle, Eye, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, Eye, Loader2, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
@@ -386,10 +386,18 @@ const Admin = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <h2 className="text-lg font-semibold">
             Pending Approvals ({resources.length})
           </h2>
+          <Button
+            variant="outline"
+            onClick={() => navigate('/admin/requests')}
+            className="flex items-center gap-2"
+          >
+            <MessageSquare className="h-4 w-4" />
+            Manage Requests
+          </Button>
         </div>
 
         {resources.length === 0 ? (

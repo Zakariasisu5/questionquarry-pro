@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Course from "./pages/Course";
 import Upload from "./pages/Upload";
 import Admin from "./pages/Admin";
+import AdminRequests from "./pages/AdminRequests";
 import Auth from "./pages/Auth";
 import Bookmarks from "./pages/Bookmarks";
 import About from "./pages/About";
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/course/:courseCode" element={<Course />} />
           <Route path="/upload" element={<Upload />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/admin/requests" element={<AdminRequests />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/bookmarks" element={<Bookmarks />} />
           <Route path="/about" element={<About />} />
