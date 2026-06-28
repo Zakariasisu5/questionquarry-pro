@@ -20,8 +20,22 @@ const Course = () => {
   const [resources, setResources] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadCounts, setDownloadCounts] = useState<Record<string, number>>({});
+  const [courseMeta, setCourseMeta] = useState<{ title: string; lecturer: string | null } | null>(null);
   const { bookmarkedIds, toggleBookmark } = useBookmarks();
   const { user } = useAuth();
+
+  // Fetch course metadata
+  useEffect(() => {
+    if (!courseCode) return;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("courses")
+        .select("title, lecturer")
+        .eq("code", courseCode)
+        .maybeSingle();
+      if (data) setCourseMeta({ title: data.title, lecturer: data.lecturer });
+    })();
+  }, [courseCode]);
 
   // Fetch resources for this course
   useEffect(() => {
