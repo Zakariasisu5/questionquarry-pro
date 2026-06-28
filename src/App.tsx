@@ -15,6 +15,7 @@ import About from "./pages/About";
 import RequestResource from "./pages/RequestResource";
 import StudyAssistant from "./pages/StudyAssistant";
 import NotFound from "./pages/NotFound";
+import Browse from "./pages/Browse";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,7 @@ const App = () => (
         <AuthPrompt />
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/browse" element={<Browse />} />
           <Route path="/course/:courseCode" element={<Course />} />
           <Route path="/upload" element={<Upload />} />
           <Route path="/admin" element={<Admin />} />

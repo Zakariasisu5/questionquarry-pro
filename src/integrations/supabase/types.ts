@@ -43,6 +43,39 @@ export type Database = {
           },
         ]
       }
+      courses: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          lecturer: string | null
+          level: string
+          title: string
+          trimester: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          lecturer?: string | null
+          level: string
+          title: string
+          trimester: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          lecturer?: string | null
+          level?: string
+          title?: string
+          trimester?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       downloads: {
         Row: {
           created_at: string
@@ -139,6 +172,8 @@ export type Database = {
           course_code: string
           created_at: string
           description: string | null
+          file_size: number | null
+          file_type: string | null
           file_url: string
           id: string
           level: string | null
@@ -157,6 +192,8 @@ export type Database = {
           course_code: string
           created_at?: string
           description?: string | null
+          file_size?: number | null
+          file_type?: string | null
           file_url: string
           id?: string
           level?: string | null
@@ -175,6 +212,8 @@ export type Database = {
           course_code?: string
           created_at?: string
           description?: string | null
+          file_size?: number | null
+          file_type?: string | null
           file_url?: string
           id?: string
           level?: string | null

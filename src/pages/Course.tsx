@@ -20,8 +20,22 @@ const Course = () => {
   const [resources, setResources] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadCounts, setDownloadCounts] = useState<Record<string, number>>({});
+  const [courseMeta, setCourseMeta] = useState<{ title: string; lecturer: string | null } | null>(null);
   const { bookmarkedIds, toggleBookmark } = useBookmarks();
   const { user } = useAuth();
+
+  // Fetch course metadata
+  useEffect(() => {
+    if (!courseCode) return;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("courses")
+        .select("title, lecturer")
+        .eq("code", courseCode)
+        .maybeSingle();
+      if (data) setCourseMeta({ title: data.title, lecturer: data.lecturer });
+    })();
+  }, [courseCode]);
 
   // Fetch resources for this course
   useEffect(() => {
@@ -130,9 +144,12 @@ const Course = () => {
             >
               <ArrowLeft className="h-6 w-6" />
             </Button>
-            <div>
-              <h1 className="text-xl font-bold">{courseCode}</h1>
-              <p className="text-xs opacity-90">Data Structures and Algorithms</p>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold truncate">{courseCode}</h1>
+              <p className="text-xs opacity-90 truncate">
+                {courseMeta?.title || "Course resources"}
+                {courseMeta?.lecturer ? ` · ${courseMeta.lecturer}` : ""}
+              </p>
             </div>
           </div>
         </div>
@@ -169,7 +186,7 @@ const Course = () => {
             <div className="card-academic p-8 text-center">
               <p className="text-muted-foreground">
                 {resources.length === 0 
-                  ? "No resources available for this course yet" 
+                  ? "No resources have been uploaded for this course yet."
                   : "No resources match your filters"}
               </p>
               {resources.length > 0 && (
