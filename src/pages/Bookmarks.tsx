@@ -77,7 +77,6 @@ const Bookmarks = () => {
     });
 
     try {
-      // @ts-expect-error: 'downloads' table is not in the generated types but exists in the database
       const { error } = await supabase.from('downloads').insert({ resource_id: resourceId, user_id: user.id });
       if (error) console.warn('Failed to record download:', error);
       else {
