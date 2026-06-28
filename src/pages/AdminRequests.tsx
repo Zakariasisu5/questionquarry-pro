@@ -25,14 +25,24 @@ const AdminRequests = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('resource_requests')
-        .select(`
-          *,
-          profiles(name, email)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
-      return data;
+
+      const userIds = Array.from(new Set((data || []).map((r) => r.user_id).filter(Boolean)));
+      const profilesMap: Record<string, { name: string | null; email: string | null }> = {};
+      if (userIds.length > 0) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, name, email')
+          .in('id', userIds);
+        (profs || []).forEach((p) => {
+          profilesMap[p.id] = { name: p.name, email: p.email };
+        });
+      }
+
+      return (data || []).map((r) => ({ ...r, profiles: profilesMap[r.user_id] || null }));
     },
     enabled: isAdmin,
   });
