@@ -144,9 +144,12 @@ const Course = () => {
             >
               <ArrowLeft className="h-6 w-6" />
             </Button>
-            <div>
-              <h1 className="text-xl font-bold">{courseCode}</h1>
-              <p className="text-xs opacity-90">Data Structures and Algorithms</p>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold truncate">{courseCode}</h1>
+              <p className="text-xs opacity-90 truncate">
+                {courseMeta?.title || "Course resources"}
+                {courseMeta?.lecturer ? ` · ${courseMeta.lecturer}` : ""}
+              </p>
             </div>
           </div>
         </div>
@@ -183,7 +186,7 @@ const Course = () => {
             <div className="card-academic p-8 text-center">
               <p className="text-muted-foreground">
                 {resources.length === 0 
-                  ? "No resources available for this course yet" 
+                  ? "No resources have been uploaded for this course yet."
                   : "No resources match your filters"}
               </p>
               {resources.length > 0 && (
