@@ -4,7 +4,7 @@ import { CourseCard } from "@/components/CourseCard";
 import { ResourceCard } from "@/components/ResourceCard";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
-import { Upload, Star } from "lucide-react";
+import { Upload, Star, BookOpen, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -314,6 +314,27 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 space-y-8">
+        {/* Browse Resources hero */}
+        <section>
+          <button
+            onClick={() => navigate("/browse")}
+            className="w-full text-left rounded-xl bg-gradient-to-br from-primary to-primary-hover text-primary-foreground p-6 shadow-md hover:shadow-lg transition-all"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-full bg-white/15">
+                  <BookOpen className="h-7 w-7" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">Browse Resources</h2>
+                  <p className="text-sm opacity-90">By level → trimester → course</p>
+                </div>
+              </div>
+              <ChevronRight className="h-6 w-6 opacity-90" />
+            </div>
+          </button>
+        </section>
+
         {/* Search Section */}
         <section>
           <SearchBar value={searchQuery} onChange={setSearchQuery} />
@@ -363,7 +384,7 @@ const Index = () => {
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Browse by Course</h2>
-            <Button variant="link" className="text-primary h-auto p-0">
+            <Button variant="link" className="text-primary h-auto p-0" onClick={() => navigate("/browse")}>
               View All
             </Button>
           </div>
