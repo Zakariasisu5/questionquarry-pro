@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User } from "@supabase/supabase-js";
 import { z } from "zod";
+import { Eye, EyeOff } from "lucide-react";
 import logo from '@/assets/logo.jpg';
 
 const authSchema = z.object({
@@ -22,6 +23,8 @@ const Auth = () => {
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
   
   const [signupData, setSignupData] = useState({
     name: "",
