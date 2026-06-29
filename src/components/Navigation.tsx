@@ -47,7 +47,12 @@ export const Navigation = () => {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="text-primary-foreground">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Open menu"
+          className="text-slate-800 hover:bg-slate-100 border border-slate-200"
+        >
           <Menu className="h-6 w-6" />
         </Button>
       </SheetTrigger>
