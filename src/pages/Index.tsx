@@ -192,7 +192,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto w-full max-w-screen-sm bg-white min-h-screen shadow-sm">
+      <div className="mx-auto w-full max-w-screen-sm md:max-w-4xl bg-white min-h-screen shadow-sm">
         {/* Header */}
         <header className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-white sticky top-0 z-30">
           <button
