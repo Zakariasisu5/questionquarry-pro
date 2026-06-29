@@ -1,10 +1,17 @@
-import { useState, useEffect } from "react";
-import { SearchBar } from "@/components/SearchBar";
-import { CourseCard } from "@/components/CourseCard";
+import { useState, useEffect, useMemo } from "react";
 import { ResourceCard } from "@/components/ResourceCard";
 import { Navigation } from "@/components/Navigation";
-import { Button } from "@/components/ui/button";
-import { Upload, Star, BookOpen, ChevronRight } from "lucide-react";
+import {
+  Search,
+  Upload,
+  Star,
+  FileText,
+  BookOpen,
+  Sparkles,
+  ChevronRight,
+  Clock,
+  GraduationCap,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,493 +19,422 @@ import { useAuth } from "@/hooks/useAuth";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import udsLogo from "@/assets/logo.jpg";
 
-interface Course {
-  code: string;
-  name: string;
-  notes: number;
-  questions: number;
-  updated: string;
-}
-
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [recentUploads, setRecentUploads] = useState<any[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [stats, setStats] = useState({ courses: 0, resources: 0, downloads: 0 });
+  const [stats, setStats] = useState({ courses: 0, resources: 0, notes: 0, questions: 0 });
   const [downloadCounts, setDownloadCounts] = useState<Record<string, number>>({});
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { bookmarkedIds, toggleBookmark } = useBookmarks();
 
-  // Fetch courses
+  // Fetch recent uploads + stats
   useEffect(() => {
-    const fetchCourses = async () => {
+    const fetchData = async () => {
       try {
         const { data, error } = await supabase
-          .from('resources')
-          .select('course_code, type')
-          .eq('verified', true);
-
-        if (error) throw error;
-
-        // Group by course_code and count types
-        const courseMap = new Map<string, { notes: number; questions: number }>();
-        data?.forEach((resource) => {
-          const code = resource.course_code;
-          if (!courseMap.has(code)) {
-            courseMap.set(code, { notes: 0, questions: 0 });
-          }
-          const counts = courseMap.get(code)!;
-          if (resource.type === 'note') counts.notes++;
-          if (resource.type === 'question') counts.questions++;
-        });
-
-        const coursesArray = Array.from(courseMap.entries()).map(([code, counts]) => ({
-          code,
-          name: code,
-          notes: counts.notes,
-          questions: counts.questions,
-          updated: 'Recently',
-        }));
-
-        setCourses(coursesArray.slice(0, 6));
-      } catch (err) {
-        console.error('Error fetching courses:', err);
-      }
-    };
-
-    fetchCourses();
-  }, []);
-
-  // Fetch recent uploads
-  useEffect(() => {
-    const fetchRecentUploads = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('resources')
-          .select('*')
-          .eq('verified', true)
-          .order('created_at', { ascending: false })
-          .limit(10);
-
+          .from("resources")
+          .select("*")
+          .eq("verified", true)
+          .order("created_at", { ascending: false })
+          .limit(5);
         if (error) throw error;
         setRecentUploads(data || []);
 
-        // Fetch download counts for recent uploads
-        if (data && data.length > 0) {
-          const counts: Record<string, number> = {};
-          await Promise.all(
-            data.map(async (resource) => {
-              const { data: countData, error: countError } = await supabase
-                .rpc('get_download_count', { resource_uuid: resource.id });
-              if (!countError && countData !== null) {
-                counts[resource.id] = countData;
-              }
-            })
-          );
-          setDownloadCounts(prev => ({ ...prev, ...counts }));
-        }
-      } catch (err) {
-        console.error('Error fetching recent uploads:', err);
-      }
-    };
-
-    fetchRecentUploads();
-  }, []);
-
-  // Fetch stats
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const { data: resources, error: resourcesError } = await supabase
-          .from('resources')
-          .select('course_code', { count: 'exact' })
-          .eq('verified', true);
-
-        if (resourcesError) throw resourcesError;
-
-        const uniqueCourses = new Set(resources?.map(r => r.course_code) || []).size;
-
+        const { data: allRes } = await supabase
+          .from("resources")
+          .select("course_code, type")
+          .eq("verified", true);
+        const codes = new Set<string>();
+        let notes = 0;
+        let questions = 0;
+        (allRes || []).forEach((r: any) => {
+          codes.add(r.course_code);
+          if (r.type === "note") notes++;
+          if (r.type === "question") questions++;
+        });
         setStats({
-          courses: uniqueCourses,
-          resources: resources?.length || 0,
-          downloads: 0, // This would need to be tracked separately
+          courses: codes.size,
+          resources: allRes?.length || 0,
+          notes,
+          questions,
         });
       } catch (err) {
-        console.error('Error fetching stats:', err);
+        console.error("Error loading homepage data:", err);
       }
     };
-
-    fetchStats();
+    fetchData();
   }, []);
 
-  // Debounced search effect
+  // Debounced search
   useEffect(() => {
-    if (!searchQuery || searchQuery.trim().length === 0) {
+    if (!searchQuery.trim()) {
       setSearchResults([]);
       setSearchLoading(false);
       return;
     }
-
     const q = searchQuery.trim();
     const handle = setTimeout(async () => {
       try {
         setSearchLoading(true);
-        // Search title or course_code using ilike (case-insensitive)
-        const filter = `%${q.replace(/%/g, '\\%')}%`;
+        const filter = `%${q.replace(/%/g, "\\%")}%`;
         const { data, error } = await supabase
-          .from('resources')
-          .select('id, title, course_code, type, verified, file_url, created_at')
+          .from("resources")
+          .select("id, title, course_code, type, verified, file_url, created_at")
           .or(`title.ilike.${filter},course_code.ilike.${filter}`)
-          .eq('verified', true)
+          .eq("verified", true)
           .limit(50);
-
         if (error) throw error;
-        let results: any[] = data ?? [];
+        setSearchResults(data ?? []);
 
-        // If current user exists, also include their own unverified uploads that match the query
-        if (user) {
-          try {
-            const { data: userData, error: userError } = await supabase
-              .from('resources')
-              .select('id, title, course_code, type, verified, file_url, created_at')
-              .eq('contributor_id', user.id)
-              .eq('verified', false)
-              .limit(50);
-
-            if (!userError && userData) {
-              // client-side filter to match title or course_code
-              const qLower = q.toLowerCase();
-              const filtered = (userData as any[]).filter((r) => {
-                return (
-                  (r.title || '').toLowerCase().includes(qLower) ||
-                  (r.course_code || '').toLowerCase().includes(qLower)
-                );
-              });
-
-              // merge and dedupe by id
-              const ids = new Set(results.map((r) => r.id));
-              for (const item of filtered) {
-                if (!ids.has(item.id)) {
-                  results.push(item);
-                  ids.add(item.id);
-                }
-              }
-            }
-          } catch (e) {
-            console.warn('Error fetching user unverified resources', e);
-          }
-        }
-
-        setSearchResults(results);
-
-        // Fetch download counts for search results
-        if (results.length > 0) {
+        if (data && data.length > 0) {
           const counts: Record<string, number> = {};
           await Promise.all(
-            results.map(async (resource) => {
-              const { data: countData, error: countError } = await supabase
-                .rpc('get_download_count', { resource_uuid: resource.id });
-              if (!countError && countData !== null) {
-                counts[resource.id] = countData;
-              }
-            })
+            data.map(async (resource) => {
+              const { data: c } = await supabase.rpc("get_download_count", {
+                resource_uuid: resource.id,
+              });
+              if (c !== null && c !== undefined) counts[resource.id] = c as number;
+            }),
           );
-          setDownloadCounts(prev => ({ ...prev, ...counts }));
+          setDownloadCounts((prev) => ({ ...prev, ...counts }));
         }
       } catch (err: any) {
-        console.error('Search error', err);
-        toast({ title: 'Search failed', description: err.message ?? String(err) });
-        setSearchResults([]);
+        console.error("Search error", err);
+        toast({ title: "Search failed", description: err.message ?? String(err) });
       } finally {
         setSearchLoading(false);
       }
     }, 350);
-
     return () => clearTimeout(handle);
   }, [searchQuery, toast]);
 
-  const handleCourseClick = (courseCode: string) => {
-    // Allow navigation for everyone. If unauthenticated, prompt to sign-in when interacting on the course page.
+  const requireAuth = (path: string, msg: string) => {
     if (!user) {
-      toast({
-        title: "Guest view",
-        description: "You can view resources. Sign in to download, bookmark or upload.",
-        variant: "default",
-      });
+      toast({ title: "Login Required", description: msg });
+      navigate("/auth");
+      return false;
     }
-    navigate(`/course/${courseCode}`);
+    navigate(path);
+    return true;
   };
-
 
   const handleDownload = async (resourceId: string, fileUrl: string, title: string) => {
     if (!user) {
       toast({ title: "Login Required", description: "Please login to download resources" });
-      navigate('/auth');
+      navigate("/auth");
       return;
     }
-
-    // Open the file (public URL or signed URL)
-    window.open(fileUrl, '_blank');
-    toast({ 
-      title: "Download started", 
-      description: `Downloading: ${title}` 
-    });
-
-    // Record the download in the database. If this fails, log but don't block the UX.
+    window.open(fileUrl, "_blank");
+    toast({ title: "Download started", description: title });
     try {
-      const { error } = await supabase.from('downloads' as any).insert({ resource_id: resourceId, user_id: user.id });
-      if (error) {
-        console.warn('Failed to record download:', error);
-      } else {
-        // Optionally, update the in-memory stats counter
-        setStats((s) => ({ ...s, downloads: s.downloads + 1 }));
-      }
+      await supabase.from("downloads" as any).insert({ resource_id: resourceId, user_id: user.id });
     } catch (e) {
-      console.warn('Error recording download', e);
+      console.warn("Error recording download", e);
     }
   };
 
   const handleView = (fileUrl: string, title: string) => {
     if (!user) {
       toast({ title: "Login Required", description: "Please login to view resources" });
-      navigate('/auth');
+      navigate("/auth");
       return;
     }
-    window.open(fileUrl, '_blank');
+    window.open(fileUrl, "_blank");
     toast({ title: "Opening preview", description: title });
   };
 
+  const browseTiles = useMemo(
+    () => [
+      {
+        label: "Past Questions",
+        sub: `${stats.questions.toLocaleString()} documents`,
+        icon: FileText,
+        iconBg: "bg-orange-500",
+        cardBg: "bg-orange-50",
+        cardBorder: "border-orange-100",
+        onClick: () => navigate("/browse"),
+      },
+      {
+        label: "Lecture Notes",
+        sub: `${stats.notes.toLocaleString()} files`,
+        icon: BookOpen,
+        iconBg: "bg-blue-500",
+        cardBg: "bg-blue-50",
+        cardBorder: "border-blue-100",
+        onClick: () => navigate("/browse"),
+      },
+      {
+        label: "Study Assistant",
+        sub: "AI exam helper",
+        icon: Sparkles,
+        iconBg: "bg-purple-500",
+        cardBg: "bg-purple-50",
+        cardBorder: "border-purple-100",
+        onClick: () => requireAuth("/study-assistant", "Please login to use the Study Assistant"),
+      },
+      {
+        label: "Upload",
+        sub: "Share a resource",
+        icon: Upload,
+        iconBg: "bg-emerald-600",
+        cardBg: "bg-emerald-50",
+        cardBorder: "border-emerald-100",
+        onClick: () => requireAuth("/upload", "Please login or signup to upload resources"),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [stats, user],
+  );
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-primary text-primary-foreground shadow-lg">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img src={udsLogo} alt="UDS Logo" className="h-12 w-12" />
-              <div>
-                <h1 className="text-xl font-bold">UDS StudyHub</h1>
-                <p className="text-xs opacity-90">Past Questions & Notes</p>
-              </div>
-            </div>
+    <div className="min-h-screen bg-slate-50">
+      <div className="mx-auto w-full max-w-screen-sm bg-white min-h-screen shadow-sm">
+        {/* Header */}
+        <header className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-white sticky top-0 z-30">
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2"
+            aria-label="UDS StudyHub home"
+          >
+            <img src={udsLogo} alt="UDS Logo" className="h-9 w-9 rounded-lg object-cover" />
+            <span className="font-bold text-slate-900 tracking-tight">UDS StudyHub</span>
+          </button>
+          <div className="text-slate-700">
             <Navigation />
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Home auth banner: prompt unauthenticated visitors to sign in */}
-      {(!authLoading && !user) && (() => {
-        const STORAGE_KEY = 'qq:homeAuthBannerDismissed';
-        let dismissed = false;
-        try { dismissed = localStorage.getItem(STORAGE_KEY) === '1'; } catch {}
-        if (dismissed) return null;
-        return (
-          <div className="bg-amber-50 border-b border-amber-200">
-            <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-              <div className="text-sm">
-                <strong className="mr-2">Welcome!</strong>
-                Sign in to upload, download, and bookmark resources.
-              </div>
-              <div className="flex items-center gap-2">
-                <Button onClick={() => navigate('/auth')}>Sign in / Sign up</Button>
-                <Button variant="ghost" onClick={() => { try { localStorage.setItem(STORAGE_KEY, '1'); } catch {} }}>Dismiss</Button>
-              </div>
-            </div>
+        {/* Sign-in nudge */}
+        {(!authLoading && !user) && (
+          <div className="bg-amber-50 border-b border-amber-200 px-5 py-3 flex items-center justify-between gap-3">
+            <p className="text-xs text-amber-900">
+              <strong className="font-semibold">Welcome!</strong> Sign in to download,
+              bookmark, and upload.
+            </p>
+            <button
+              onClick={() => navigate("/auth")}
+              className="text-xs font-semibold text-emerald-700 whitespace-nowrap"
+            >
+              Sign in →
+            </button>
           </div>
-        );
-      })()}
-
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-6 space-y-8">
-        {/* Browse Resources hero */}
-        <section>
-          <button
-            onClick={() => navigate("/browse")}
-            className="w-full text-left rounded-xl bg-gradient-to-br from-primary to-primary-hover text-primary-foreground p-6 shadow-md hover:shadow-lg transition-all"
-          >
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-full bg-white/15">
-                  <BookOpen className="h-7 w-7" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold">Browse Resources</h2>
-                  <p className="text-sm opacity-90">By level → trimester → course</p>
-                </div>
-              </div>
-              <ChevronRight className="h-6 w-6 opacity-90" />
-            </div>
-          </button>
-        </section>
-
-        {/* Search Section */}
-        <section>
-          <SearchBar value={searchQuery} onChange={setSearchQuery} />
-        </section>
-
-        {/* Quick Actions */}
-        <section className="grid grid-cols-2 gap-3">
-          <Button 
-            variant="outline" 
-            className="h-20 flex-col gap-2 btn-tap-target"
-            onClick={() => {
-              if (!user) {
-                toast({
-                  title: "Login Required",
-                  description: "Please login or signup to upload resources",
-                });
-                navigate("/auth");
-              } else {
-                navigate("/upload");
-              }
-            }}
-          >
-            <Upload className="h-6 w-6" />
-            <span className="text-sm">Upload</span>
-          </Button>
-          <Button 
-            variant="outline" 
-            className="h-20 flex-col gap-2 btn-tap-target"
-            onClick={() => {
-              if (!user) {
-                toast({
-                  title: "Login Required",
-                  description: "Please login or signup to view bookmarks",
-                });
-                navigate("/auth");
-              } else {
-                navigate("/bookmarks");
-              }
-            }}
-          >
-            <Star className="h-6 w-6" />
-            <span className="text-sm">Bookmarks</span>
-          </Button>
-        </section>
-
-        {/* Browse Courses */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Browse by Course</h2>
-            <Button variant="link" className="text-primary h-auto p-0" onClick={() => navigate("/browse")}>
-              View All
-            </Button>
-          </div>
-          <div className="grid gap-3">
-            {courses.length === 0 ? (
-              <div className="p-4 text-center text-muted-foreground">
-                No courses available yet. Be the first to upload!
-              </div>
-            ) : (
-              courses.map((course, index) => (
-                <CourseCard
-                  key={`${course.code}-${index}`}
-                  courseCode={course.code}
-                  courseName={course.name}
-                  noteCount={course.notes}
-                  questionCount={course.questions}
-                  lastUpdated={course.updated}
-                  onClick={() => handleCourseClick(course.code)}
-                />
-              ))
-            )}
-          </div>
-        </section>
-
-        {/* Search Results or Recent Uploads */}
-        {searchQuery.trim() ? (
-          <section className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Search Results</h2>
-              {user && (
-                <div className="text-xs text-muted-foreground">Showing verified results plus your pending uploads</div>
-              )}
-            </div>
-            <div className="grid gap-3">
-              {searchLoading && <div className="p-4">Searching...</div>}
-              {!searchLoading && searchResults.length === 0 && (
-                <div className="p-4">No results found.</div>
-              )}
-              {!searchLoading && searchResults.map((r) => (
-                <ResourceCard
-                  key={r.id}
-                  id={r.id}
-                  title={r.title}
-                  courseCode={r.course_code}
-                  type={r.type}
-                  year={undefined}
-                  semester={undefined}
-                  examType={undefined}
-                  verified={r.verified}
-                  downloads={downloadCounts[r.id] || 0}
-                  isBookmarked={bookmarkedIds.has(r.id)}
-                  onView={() => handleView(r.file_url, r.title)}
-                  onDownload={() => handleDownload(r.id, r.file_url, r.title)}
-                  onBookmark={() => toggleBookmark(r.id)}
-                />
-              ))}
-            </div>
-          </section>
-        ) : (
-          <section className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Recent Uploads</h2>
-              <Button variant="link" className="text-primary h-auto p-0">
-                View All
-              </Button>
-            </div>
-            <div className="grid gap-3">
-              {recentUploads.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  No resources uploaded yet. Be the first!
-                </div>
-              ) : (
-                recentUploads.map((resource) => (
-                  <ResourceCard
-                    key={resource.id}
-                    id={resource.id}
-                    title={resource.title}
-                    courseCode={resource.course_code}
-                    type={resource.type}
-                    year={undefined}
-                    semester={undefined}
-                    examType={undefined}
-                    verified={resource.verified}
-                    downloads={downloadCounts[resource.id] || 0}
-                    isBookmarked={bookmarkedIds.has(resource.id)}
-                    onView={() => handleView(resource.file_url, resource.title)}
-                    onDownload={() => handleDownload(resource.id, resource.file_url, resource.title)}
-                    onBookmark={() => toggleBookmark(resource.id)}
-                  />
-                ))
-              )}
-            </div>
-          </section>
         )}
 
-        {/* Stats */}
-        <section className="card-academic p-6 text-center space-y-3">
-          <h3 className="text-lg font-semibold">Community Stats</h3>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <p className="text-2xl font-bold text-primary">{stats.courses}</p>
-              <p className="text-xs text-muted-foreground">Courses</p>
+        <main className="pb-12">
+          {/* Hero */}
+          <section className="px-5 py-8 bg-gradient-to-br from-emerald-800 to-emerald-950 text-white">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-400/15 border border-yellow-400/30 mb-4">
+              <GraduationCap className="h-3.5 w-3.5 text-yellow-300" />
+              <span className="text-xs font-semibold text-yellow-300">
+                Built for UDS Students
+              </span>
             </div>
-            <div>
-              <p className="text-2xl font-bold text-secondary">{stats.resources}</p>
-              <p className="text-xs text-muted-foreground">Resources</p>
+            <h1 className="text-3xl font-extrabold leading-tight mb-3">
+              Master your courses with UDS StudyHub
+            </h1>
+            <p className="text-emerald-100/90 text-sm leading-relaxed mb-6">
+              Past questions, lecture notes and study guides — shared by students,
+              organized by level and trimester.
+            </p>
+
+            {/* Search */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+              }}
+              className="relative"
+            >
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search courses, notes, or codes..."
+                className="w-full py-3.5 pl-11 pr-4 bg-white rounded-xl text-slate-800 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 shadow-lg"
+              />
+            </form>
+
+            {/* Primary CTA */}
+            <button
+              onClick={() => navigate("/browse")}
+              className="mt-4 w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-yellow-400 text-emerald-950 font-semibold text-sm shadow-md hover:bg-yellow-300 transition-colors active:scale-[0.98]"
+            >
+              <span className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4" />
+                Browse by level & trimester
+              </span>
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </section>
+
+          {/* Stats */}
+          <section className="flex justify-between items-center px-5 py-5 bg-white border-b border-slate-100">
+            <div className="text-center flex-1">
+              <span className="block text-lg font-bold text-slate-900">
+                {stats.resources.toLocaleString()}+
+              </span>
+              <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
+                Resources
+              </span>
             </div>
-            <div>
-              <p className="text-2xl font-bold text-success">{stats.downloads}</p>
-              <p className="text-xs text-muted-foreground">Downloads</p>
+            <div className="w-px bg-slate-100 h-8" />
+            <div className="text-center flex-1">
+              <span className="block text-lg font-bold text-slate-900">
+                {stats.courses}
+              </span>
+              <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
+                Courses
+              </span>
             </div>
-          </div>
-        </section>
-      </main>
+            <div className="w-px bg-slate-100 h-8" />
+            <div className="text-center flex-1">
+              <span className="block text-lg font-bold text-slate-900">100%</span>
+              <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
+                Free
+              </span>
+            </div>
+          </section>
+
+          {/* Browse grid */}
+          <section className="px-5 pt-8">
+            <div className="flex justify-between items-end mb-5">
+              <h2 className="text-lg font-bold text-slate-900">Browse Resources</h2>
+              <button
+                onClick={() => navigate("/browse")}
+                className="text-xs font-semibold text-emerald-700"
+              >
+                View All
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {browseTiles.map((tile) => {
+                const Icon = tile.icon;
+                return (
+                  <button
+                    key={tile.label}
+                    onClick={tile.onClick}
+                    className={`text-left p-4 rounded-2xl border ${tile.cardBg} ${tile.cardBorder} active:scale-95 transition-transform`}
+                  >
+                    <div
+                      className={`w-10 h-10 ${tile.iconBg} rounded-xl flex items-center justify-center mb-3 text-white shadow-sm`}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <span className="block font-bold text-slate-800 text-sm">
+                      {tile.label}
+                    </span>
+                    <span className="text-[11px] text-slate-500">{tile.sub}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Search results or Recent Uploads */}
+          {searchQuery.trim() ? (
+            <section className="px-5 mt-8">
+              <h2 className="text-lg font-bold text-slate-900 mb-4">Search Results</h2>
+              <div className="grid gap-3">
+                {searchLoading && (
+                  <div className="p-4 text-sm text-slate-500">Searching...</div>
+                )}
+                {!searchLoading && searchResults.length === 0 && (
+                  <div className="p-4 text-sm text-slate-500">No results found.</div>
+                )}
+                {!searchLoading &&
+                  searchResults.map((r) => (
+                    <ResourceCard
+                      key={r.id}
+                      id={r.id}
+                      title={r.title}
+                      courseCode={r.course_code}
+                      type={r.type}
+                      year={undefined}
+                      semester={undefined}
+                      examType={undefined}
+                      verified={r.verified}
+                      downloads={downloadCounts[r.id] || 0}
+                      isBookmarked={bookmarkedIds.has(r.id)}
+                      onView={() => handleView(r.file_url, r.title)}
+                      onDownload={() => handleDownload(r.id, r.file_url, r.title)}
+                      onBookmark={() => toggleBookmark(r.id)}
+                    />
+                  ))}
+              </div>
+            </section>
+          ) : (
+            <section className="px-5 mt-8">
+              <div className="flex justify-between items-end mb-4">
+                <h2 className="text-lg font-bold text-slate-900">Recent Uploads</h2>
+                <button
+                  onClick={() => navigate("/browse")}
+                  className="text-xs font-semibold text-emerald-700"
+                >
+                  View All
+                </button>
+              </div>
+              <div className="space-y-2.5">
+                {recentUploads.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-slate-500 border border-dashed border-slate-200 rounded-xl">
+                    No resources uploaded yet. Be the first!
+                  </div>
+                ) : (
+                  recentUploads.map((r) => {
+                    const ext = (r.file_url || "").split(".").pop()?.toUpperCase().slice(0, 4) || "PDF";
+                    const when = r.created_at ? new Date(r.created_at).toLocaleDateString() : "";
+                    return (
+                      <button
+                        key={r.id}
+                        onClick={() => navigate(`/course/${r.course_code}`)}
+                        className="w-full flex items-center p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors text-left"
+                      >
+                        <div className="w-10 h-12 bg-slate-100 rounded-md flex items-center justify-center mr-3 text-slate-500 font-bold text-[10px]">
+                          {ext}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-sm font-semibold text-slate-800 truncate">
+                            {r.title}
+                          </h3>
+                          <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                            <span>{r.course_code}</span>
+                            <span>•</span>
+                            <Clock className="h-3 w-3" />
+                            <span>{when}</span>
+                          </p>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-slate-300" />
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Bookmarks quick-link */}
+          <section className="px-5 mt-8">
+            <button
+              onClick={() => requireAuth("/bookmarks", "Please login or signup to view bookmarks")}
+              className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl border border-slate-100 bg-white hover:bg-slate-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-yellow-100 text-yellow-700 flex items-center justify-center">
+                  <Star className="h-5 w-5" />
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-slate-800 text-sm">Your Bookmarks</p>
+                  <p className="text-xs text-slate-500">Saved resources for later</p>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-slate-400" />
+            </button>
+          </section>
+        </main>
+      </div>
     </div>
   );
 };
