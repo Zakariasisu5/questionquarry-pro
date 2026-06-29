@@ -37,21 +37,27 @@ const Upload = () => {
   const [uploading, setUploading] = useState(false);
   const [bucketMissing, setBucketMissing] = useState(false);
 
-  // Check if storage bucket exists to avoid attempting upload to a missing bucket
+  // Check if storage bucket exists. Only mark missing when error explicitly says so —
+  // RLS on storage.objects can block a list() call even when the bucket is present.
   useEffect(() => {
     const checkBucket = async () => {
       try {
-        // attempt to list root of the bucket; if bucket doesn't exist this should error
         const { error } = await supabase.storage.from(BUCKET_NAME).list('', { limit: 1 });
         if (error) {
-          console.warn('Storage bucket check error', error.message);
-          setBucketMissing(true);
+          const msg = (error.message || '').toLowerCase();
+          if (msg.includes('not found') || msg.includes('does not exist') || msg.includes('bucket')) {
+            setBucketMissing(true);
+          } else {
+            // Permission/RLS errors — bucket exists, just can't list. Allow uploads.
+            console.warn('Bucket list blocked (likely RLS), proceeding:', error.message);
+            setBucketMissing(false);
+          }
         } else {
           setBucketMissing(false);
         }
       } catch (err) {
         console.warn('Storage bucket check failed', err);
-        setBucketMissing(true);
+        setBucketMissing(false);
       }
     };
 
